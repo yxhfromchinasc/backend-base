@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 控制台易读格式输出 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- JSON 日志输出（用于 CLS 采集） -->
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <timeZone>Asia/Shanghai</timeZone>
+                </timestamp>
+                <mdc/>
+                <pattern>
+                    <pattern>
+                        {
+                          "level":"%level",
+                          "logger":"%logger{50}",
+                          "thread":"%thread",
+                          "event":"%X{event}",
+                          "traceId":"%X{traceId}",
+                          "className":"%X{className}",
+                          "methodName":"%X{methodName}",
+                          "logType":"%X{logType}",
+                          "costTime":"%X{costTime}",
+                          "success":"%X{success}",
+                          "message":"%msg"
+                        }
+                    </pattern>
+                </pattern>
+                <arguments/>
+                <stackTrace/>
+            </providers>
+        </encoder>
+    </appender>
+
+    <!-- 腾讯云 CLS 日志上传 -->
+    <springProperty scope="context" name="cls.endpoint" source="cls.endpoint" defaultValue=""/>
+    <springProperty scope="context" name="cls.secretId" source="cls.secret-id" defaultValue=""/>
+    <springProperty scope="context" name="cls.secretKey" source="cls.secret-key" defaultValue=""/>
+    <springProperty scope="context" name="cls.topicId" source="cls.topic-id" defaultValue=""/>
+    <springProperty scope="context" name="cls.batchSize" source="cls.batch-size" defaultValue="100"/>
+    <springProperty scope="context" name="cls.lingerMs" source="cls.linger-ms" defaultValue="2000"/>
+    <springProperty scope="context" name="cls.maxRetries" source="cls.max-retries" defaultValue="3"/>
+    
+    <appender name="CLS" class="com.lvxin.base.logging.ClsLogbackAppender">
+        <endpoint>${cls.endpoint}</endpoint>
+        <secretId>${cls.secretId}</secretId>
+        <secretKey>${cls.secretKey}</secretKey>
+        <topicId>${cls.topicId}</topicId>
+        <batchSize>${cls.batchSize}</batchSize>
+        <lingerMs>${cls.lingerMs}</lingerMs>
+        <maxRetries>${cls.maxRetries}</maxRetries>
+    </appender>
+
+    <!-- MyBatis SQL日志配置 -->
+    <!-- 配置MyBatis的SQL日志级别为DEBUG，这样SQL语句会被记录 -->
+    <logger name="com.lvxin.base.repository" level="DEBUG"/>
+    <!-- MyBatis Plus的SQL日志 -->
+    <logger name="com.baomidou.mybatisplus" level="DEBUG"/>
+    <!-- MyBatis的SQL日志（mapper接口所在的包） -->
+    <logger name="org.apache.ibatis" level="DEBUG"/>
+    <!-- JDBC SQL日志 -->
+    <logger name="java.sql" level="DEBUG"/>
+    <logger name="java.sql.Connection" level="DEBUG"/>
+    <logger name="java.sql.Statement" level="DEBUG"/>
+    <logger name="java.sql.PreparedStatement" level="DEBUG"/>
+    <logger name="java.sql.ResultSet" level="DEBUG"/>
+
+    <!-- 根日志配置：按环境区分 -->
+    <springProfile name="stg">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="CLS"/>
+        </root>
+    </springProfile>
+</configuration>
+
+

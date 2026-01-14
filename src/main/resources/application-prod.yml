@@ -1,0 +1,34 @@
+# PROD 环境覆盖配置（不要在 profile 文件中再次激活 profile）
+logging:
+  level:
+    root: INFO
+
+cls:
+  # 是否启用 CLS 日志上传（生产环境建议开启）
+  enabled: true
+  # 域名信息，请参见：https://cloud.tencent.com/document/product/614/18940#.E5.9F.9F.E5.90.8D
+  # API 上传日志 Tab 中的域名，例如：ap-beijing.cls.tencentcs.com
+  endpoint: ap-chengdu.cls.tencentcs.com
+  # 云 API 密钥 ID
+  secret-id: ${CLS_SECRET_ID}
+  # 云 API 密钥 Key
+  secret-key: ${CLS_SECRET_KEY}
+  # 日志主题 ID
+  topic-id: ${CLS_TOPIC_ID:}
+  # 批量上传大小（默认 100）
+  batch-size: 100
+  # 日志保留时间（毫秒），默认 2000ms
+  linger-ms: 2000
+  # 重试次数（默认 3）
+  max-retries: 3
+# Spring配置
+spring:
+  datasource:  # MySQL 数据源
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/lvxin?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
+  data:
+    redis:  # Redis 配置
+      host: ${REDIS_HOST:localhost}
+      username: default
+      password: ${REDIS_PASSWORD}

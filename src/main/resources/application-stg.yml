@@ -1,0 +1,5 @@
+# STG 环境覆盖配置（不要在 profile 文件中再次激活 profile）
+
+logging:
+  level:
+    root: INFO

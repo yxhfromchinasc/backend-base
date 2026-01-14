@@ -1,0 +1,200 @@
+# 旅心基础服务配置
+
+# 服务配置
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# Spring配置
+spring:
+  application:
+    name: lvxin-backend
+  profiles:
+    active: prod
+  
+  # 数据源配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/lvxin?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # Jackson 全局配置
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      # 单个文件最大大小（200MB，Spring Boot层面的硬限制）
+      # 注意：实际业务验证限制从系统配置 max_file_size_mb 读取，此处应设置一个较大的值作为上限
+      max-file-size: 200MB
+      # 整个请求的最大大小（400MB，支持同时上传多个文件）
+      max-request-size: 400MB
+      # 文件写入磁盘的阈值（超过此大小会写入临时文件）
+      file-size-threshold: 1MB
+      # 临时文件存储位置（可选，默认使用系统临时目录）
+      # location: /tmp
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: # Redis密码，如果Redis没有设置密码，请留空或删除此行
+      database: 0
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+# MyBatis Plus配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    # 使用slf4j输出SQL日志，这样可以通过logback捕获并包含traceId
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  mapper-locations: classpath*:mapper/**/*.xml
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+
+# 腾讯云 CLS 日志服务配置
+cls:
+  # 是否启用 CLS 日志上传（生产环境建议开启）
+  enabled: false
+  # 域名信息，请参见：https://cloud.tencent.com/document/product/614/18940#.E5.9F.9F.E5.90.8D
+  # API 上传日志 Tab 中的域名，例如：ap-beijing.cls.tencentcs.com
+  endpoint: ap-chengdu.cls.tencentcs.com
+  # 云 API 密钥 ID
+  secret-id: ${CLS_SECRET_ID}
+  # 云 API 密钥 Key
+  secret-key: ${CLS_SECRET_KEY}
+  # 日志主题 ID
+  topic-id: ${CLS_TOPIC_ID:}
+  # 批量上传大小（默认 100）
+  batch-size: 100
+  # 日志保留时间（毫秒），默认 2000ms
+  linger-ms: 2000
+  # 重试次数（默认 3）
+  max-retries: 3
+
+# 应用信息
+info:
+  app:
+    name: 旅心基础服务
+    description: 权限管理、配置中心、认证授权等基础模块
+    version: 1.0.0
+    encoding: UTF-8
+
+# 对象存储（腾讯云 COS）配置（可选，根据业务需求配置）
+cos:
+  secret-id: your-secret-id
+  secret-key: your-secret-key
+  # 默认桶名
+  bucket: your-bucket-name
+  # 区域
+  region: ap-chengdu
+  # 自定义访问域名（可选）
+  domain: https://your-domain.com
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# 链路追踪配置
+tracing:
+  header-name: X-Trace-Id
+  mdc-key: traceId
+
+# 安全认证配置
+security:
+  token:
+    # 至少32字节（建议从环境变量注入或KMS管理），此处为示例
+    secret: "${SECURITY_TOKEN_SECRET}"
+    # Token有效期，支持标准Spring Duration格式（如：7d、12h、30m）
+    ttl: 7d
+    # Token请求头名称
+    header: "Authorization"
+
+# 登录配置
+login:
+  # 手机号验证码配置
+  sms:
+    # 验证码长度
+    code-length: 6
+    # 验证码有效期（分钟）
+    expire-minutes: 5
+    # 发送间隔（秒）
+    send-interval: 60
+    # 每日发送次数限制
+    daily-limit: 10
+    # 验证码模板
+    template: "您的验证码是{code}，{expire}分钟内有效，请勿泄露给他人。"
+  # 通用配置
+  common:
+    # 登录失败次数限制
+    max-fail-attempts: 5
+    # 账户锁定时间（分钟）
+    lock-duration-minutes: 30
+    # 会话有效期（小时）
+    session-expire-hours: 24
+    # 是否记录登录日志
+    enable-login-log: true
+    # 是否启用IP白名单
+    enable-ip-whitelist: false
+    # IP白名单
+    ip-whitelist:
+      - "127.0.0.1"
+      - "::1"
+
+# 开发模式配置
+dev:
+  enabled: true
+  mock:
+    sms:
+      code: 123456
+    email:
+      code: 123456
+
+# 线程池配置
+thread-pool:
+  # 核心线程数
+  core-pool-size: 5
+  # 最大线程数
+  max-pool-size: 20
+  # 队列容量
+  queue-capacity: 100
+  # 线程空闲时间（秒）
+  keep-alive-seconds: 60
+  # 线程名前缀
+  thread-name-prefix: "async-task-"
+  # 是否允许核心线程超时
+  allow-core-thread-time-out: true
+  # 等待任务完成后关闭线程池
+  wait-for-tasks-to-complete-on-shutdown: true
+  # 等待时间（秒）
+  await-termination-seconds: 60

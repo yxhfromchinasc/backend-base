@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lvxin.base.repository.SystemConfigRepository">
+
+    <!-- 根据配置键查询配置 -->
+    <select id="selectByConfigKey" resultType="com.lvxin.base.repository.entity.SystemConfigDO">
+        SELECT * FROM system_config WHERE config_key = #{configKey}
+    </select>
+
+    <!-- 查询所有公开的配置 -->
+    <select id="selectPublicConfigs" resultType="com.lvxin.base.repository.entity.SystemConfigDO">
+        SELECT * FROM system_config WHERE is_public = 1 ORDER BY config_key
+    </select>
+
+</mapper>
+
