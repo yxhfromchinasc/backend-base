@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lvxin.base.repository.ItineraryRepository">
+
+    <!-- 根据计划表唯一标识（Key）查询计划表（默认查询当前使用版本） -->
+    <select id="selectByItineraryKey" resultType="com.lvxin.base.repository.entity.ItineraryDO">
+        SELECT *
+        FROM itinerary
+        WHERE itinerary_key = #{itineraryKey}
+        AND is_deleted = 0
+        AND is_current_version = 1
+    </select>
+
+    <!-- 根据用户ID查询用户的所有计划表（默认只查询当前使用版本） -->
+    <select id="selectByUserId" resultType="com.lvxin.base.repository.entity.ItineraryDO">
+        SELECT *
+        FROM itinerary
+        WHERE user_id = #{userId}
+        AND is_deleted = 0
+        AND is_current_version = 1
+        ORDER BY updated_at DESC
+    </select>
+
+    <!-- 根据计划表唯一标识（Key）查询所有版本（包括历史版本） -->
+    <select id="selectAllVersionsByItineraryKey" resultType="com.lvxin.base.repository.entity.ItineraryDO">
+        SELECT *
+        FROM itinerary
+        WHERE itinerary_key = #{itineraryKey}
+        AND is_deleted = 0
+        ORDER BY version DESC
+    </select>
+
+    <!-- 将指定计划表的所有版本的is_current_version设置为0 -->
+    <update id="clearCurrentVersionFlag">
+        UPDATE itinerary
+        SET is_current_version = 0
+        WHERE itinerary_key = #{itineraryKey}
+        AND is_deleted = 0
+    </update>
+
+</mapper>

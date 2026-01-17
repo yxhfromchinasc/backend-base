@@ -5,7 +5,7 @@ logging:
 
 cls:
   # 是否启用 CLS 日志上传（生产环境建议开启）
-  enabled: true
+  enabled: false
   # 域名信息，请参见：https://cloud.tencent.com/document/product/614/18940#.E5.9F.9F.E5.90.8D
   # API 上传日志 Tab 中的域名，例如：ap-beijing.cls.tencentcs.com
   endpoint: ap-chengdu.cls.tencentcs.com
@@ -24,11 +24,11 @@ cls:
 # Spring配置
 spring:
   datasource:  # MySQL 数据源
-    url: jdbc:mysql://${DB_HOST:localhost}:3306/lvxin?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: ${DB_USERNAME:root}
+    url: jdbc:mysql://localhost:3306/lvxin?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
     password: ${DB_PASSWORD}
   data:
     redis:  # Redis 配置
-      host: ${REDIS_HOST:localhost}
+      host: localhost
       username: default
       password: ${REDIS_PASSWORD}
