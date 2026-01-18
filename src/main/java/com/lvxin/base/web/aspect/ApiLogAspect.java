@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.lang.reflect.Method;
@@ -26,7 +27,8 @@ import java.util.Map;
 @Slf4j
 public class ApiLogAspect {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Resource
+    private ObjectMapper objectMapper;
 
     /**
      * 拦截所有 Controller 包下的方法

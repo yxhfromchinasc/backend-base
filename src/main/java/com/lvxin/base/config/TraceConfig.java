@@ -30,8 +30,7 @@ public class TraceConfig {
     }
 
     @Bean
-    public Filter traceFilter(TraceProperties props) {
-        ObjectMapper objectMapper = new ObjectMapper();
+    public Filter traceFilter(TraceProperties props, ObjectMapper objectMapper) {
         return new OncePerRequestFilter() {
             @Override
             protected void doFilterInternal(HttpServletRequest req, HttpServletResponse resp, FilterChain filterChain) throws ServletException, IOException {

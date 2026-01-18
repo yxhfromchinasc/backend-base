@@ -27,8 +27,8 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @RestController
-@RequestMapping("/itinerary")
-@Tag(name = "计划表管理", description = "计划表相关接口")
+@RequestMapping("/user/itinerary")
+@Tag(name = "用户端-计划表管理", description = "计划表相关接口")
 public class ItineraryController {
 
     @Resource
