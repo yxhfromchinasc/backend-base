@@ -39,6 +39,7 @@
     </appender>
 
     <!-- 腾讯云 CLS 日志上传 -->
+    <springProperty scope="context" name="cls.enabled" source="cls.enabled" defaultValue="false"/>
     <springProperty scope="context" name="cls.endpoint" source="cls.endpoint" defaultValue=""/>
     <springProperty scope="context" name="cls.secretId" source="cls.secret-id" defaultValue=""/>
     <springProperty scope="context" name="cls.secretKey" source="cls.secret-key" defaultValue=""/>
@@ -48,6 +49,7 @@
     <springProperty scope="context" name="cls.maxRetries" source="cls.max-retries" defaultValue="3"/>
     
     <appender name="CLS" class="com.lvxin.base.logging.ClsLogbackAppender">
+        <enabled>${cls.enabled}</enabled>
         <endpoint>${cls.endpoint}</endpoint>
         <secretId>${cls.secretId}</secretId>
         <secretKey>${cls.secretKey}</secretKey>

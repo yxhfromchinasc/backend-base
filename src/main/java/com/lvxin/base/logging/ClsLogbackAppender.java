@@ -32,11 +32,18 @@ public class ClsLogbackAppender extends AppenderBase<ILoggingEvent> {
     private Integer batchSize = 100;
     private Integer lingerMs = 2000;
     private Integer maxRetries = 3;
+    private Boolean enabled = true; // 默认启用，可通过配置禁用
 
     private AsyncProducerClient client;
 
     @Override
     public void start() {
+        // 如果未启用，直接返回，不启动CLS客户端
+        if (enabled == null || !enabled) {
+            log.info("CLS日志上传已禁用，跳过初始化");
+            return;
+        }
+        
         if (endpoint == null || endpoint.isEmpty()) {
             String errorMsg = "CLS endpoint is required but not configured";
             addError(errorMsg);

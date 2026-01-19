@@ -3,3 +3,7 @@
 logging:
   level:
     root: INFO
+# 腾讯云 CLS 日志服务配置
+cls:
+  # 是否启用 CLS 日志上传（生产环境建议开启）
+  enabled: false

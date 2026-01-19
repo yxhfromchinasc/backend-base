@@ -191,6 +191,7 @@ public class ItineraryController {
         resp.setVersion(bo.getVersion());
         resp.setComponentVersion(bo.getComponentVersion());
         resp.setIsCurrentVersion(bo.getIsCurrentVersion());
+        resp.setStatus(bo.getStatus() != null ? bo.getStatus() : "NORMAL"); // 默认NORMAL
         resp.setUpdatedAt(bo.getUpdatedAt());
         return resp;
     }

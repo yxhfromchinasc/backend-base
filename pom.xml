@@ -26,6 +26,8 @@
         <tencent-cos.version>5.6.89</tencent-cos.version>
         <jjwt.version>0.11.5</jjwt.version>
         <wechatpay-httpclient.version>0.4.9</wechatpay-httpclient.version>
+        <dashscope.version>2.8.0</dashscope.version>
+        <openai-java.version>0.18.2</openai-java.version>
     </properties>
 
 
@@ -176,6 +178,35 @@
         <!-- 代码生成器 - 开发工具，生产环境不需要，已移除 -->
         
         <!-- 模板引擎 - 代码生成器用的，已移除 -->
+        
+        <!-- ==================== AI服务 ==================== -->
+        <!-- 阿里云通义千问SDK -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>dashscope-sdk-java</artifactId>
+            <version>${dashscope.version}</version>
+            <exclusions>
+                <!-- 排除slf4j-simple，使用Spring Boot默认的logback -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        
+        <!-- FastJSON2（用于JSON解析） -->
+        <dependency>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
+            <version>2.0.43</version>
+        </dependency>
+        
+        <!-- OpenAI Java SDK -->
+        <dependency>
+            <groupId>com.theokanning.openai-gpt3-java</groupId>
+            <artifactId>service</artifactId>
+            <version>${openai-java.version}</version>
+        </dependency>
 
     </dependencies>
 

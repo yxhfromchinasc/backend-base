@@ -66,4 +66,26 @@ public interface ItineraryService {
      * @return 计划表列表
      */
     List<ItineraryBO> getUserItineraries(Long userId);
+
+    /**
+     * 创建生成中的计划表（用于异步生成）
+     * jsonData可以为空，状态为GENERATING
+     *
+     * @param userId 用户ID
+     * @param title 计划表标题
+     * @param originalPlan 原始计划内容（用户输入的文本或AI对话的markdown）
+     * @param coverImageUrl 封面图片URL（可选）
+     * @return 计划表业务对象
+     */
+    ItineraryBO createGeneratingItinerary(Long userId, String title, String originalPlan, String coverImageUrl);
+
+    /**
+     * 更新计划表状态和JSON数据（用于异步生成完成后更新）
+     *
+     * @param itineraryKey 计划表唯一标识（Key）
+     * @param status 状态（NORMAL-正常，FAILED-生成失败）
+     * @param jsonData 计划表JSON数据（生成成功时必填）
+     * @param errorMessage 错误信息（生成失败时可选）
+     */
+    void updateItineraryStatus(String itineraryKey, String status, String jsonData, String errorMessage);
 }

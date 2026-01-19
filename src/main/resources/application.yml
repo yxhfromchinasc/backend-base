@@ -5,6 +5,13 @@ server:
   port: 8080
   servlet:
     context-path: /api
+  # HTTP请求超时配置（5分钟 = 300秒 = 300000毫秒）
+  tomcat:
+    connection-timeout: 300000
+  # Spring MVC异步请求超时（5分钟）
+  mvc:
+    async:
+      request-timeout: 300000
 
 # Spring配置
 spring:
@@ -198,3 +205,64 @@ thread-pool:
   wait-for-tasks-to-complete-on-shutdown: true
   # 等待时间（秒）
   await-termination-seconds: 60
+
+# AI服务配置
+ai:
+  # DeepSeek配置（如果配置了api-key，将优先使用DeepSeek，支持工具调用和网络搜索）
+  deepseek:
+    # DeepSeek API Key（请替换为实际的API Key）
+    # 注意：这是敏感信息，建议使用环境变量 ${DEEPSEEK_API_KEY} 或配置中心管理
+    api-key: ${DEEPSEEK_API_KEY}
+    # API Base URL
+    base-url: https://api.deepseek.com
+    # 默认模型：deepseek-chat（支持Function Calling）、deepseek-reasoner（需要reasoning_content字段）
+    default-model: deepseek-chat
+    # 请求超时时间（毫秒）
+    timeout: 360000
+    # 最大重试次数
+    max-retries: 3
+    # 是否启用工具调用
+    enable-tools: true
+  
+  # 搜索工具配置
+  tools:
+    # 高德地图配置
+    amap:
+      enabled: true  # 启用高德地图服务
+      # 注意：这是敏感信息，建议使用环境变量 ${AMAP_API_KEY} 或配置中心管理
+      api-key: ${AMAP_API_KEY}
+    # 大众点评配置（使用高德地图POI搜索作为替代）
+    dianping:
+      enabled: true  # 启用大众点评搜索工具（实际使用高德地图POI搜索）
+    # 网络搜索配置（使用高德地图POI搜索作为替代）
+    web-search:
+      enabled: true  # 启用网络搜索工具（实际使用高德地图POI搜索）
+      provider: amap  # 使用高德地图POI搜索
+  
+  # OpenAI配置（如果配置了api-key，将优先使用OpenAI）
+  openai:
+    # OpenAI API Key（请替换为实际的API Key）
+    # 注意：这是敏感信息，建议使用环境变量 ${OPENAI_API_KEY} 或配置中心管理
+    # 优先从环境变量读取，如果没有则使用配置文件中的值
+    api-key: ${OPENAI_API_KEY}
+    # 默认模型：gpt-4o（最新，支持工具调用）、gpt-4-turbo、gpt-3.5-turbo
+    default-model: gpt-4o
+    # 请求超时时间（毫秒）
+    timeout: 360000
+    # 最大重试次数
+    max-retries: 3
+    # 是否启用Web Search工具（需要模型支持）
+    enable-web-search: true
+    # Base URL（可选，用于代理或自定义端点）
+    # base-url: https://api.openai.com/v1
+  
+  # 阿里云DashScope（通义千问）配置（如果未配置OpenAI，将使用此配置）
+  dashscope:
+    # 阿里云DashScope API Key（请替换为实际的API Key）
+    api-key: ${AI_DASHSCOPE_API_KEY}
+    # 默认模型：qwen-plus（性价比高）或 qwen-max（效果更好）
+    default-model: qwen-plus
+    # 请求超时时间（毫秒）- AI生成计划可能需要较长时间，设置为6分钟（360秒）
+    timeout: 360000
+    # 最大重试次数
+    max-retries: 3

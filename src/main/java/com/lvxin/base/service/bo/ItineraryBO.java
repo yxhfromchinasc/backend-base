@@ -60,6 +60,21 @@ public class ItineraryBO {
     private Integer isCurrentVersion;
 
     /**
+     * 原始计划内容（用户输入的文本或AI对话的markdown）
+     */
+    private String originalPlan;
+
+    /**
+     * 计划状态（NORMAL-正常，GENERATING-生成中，FAILED-生成失败）
+     */
+    private String status;
+
+    /**
+     * 错误信息（生成失败时记录）
+     */
+    private String errorMessage;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createdAt;

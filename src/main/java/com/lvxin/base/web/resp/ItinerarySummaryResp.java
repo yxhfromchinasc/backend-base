@@ -46,6 +46,11 @@ public class ItinerarySummaryResp {
     private Integer isCurrentVersion;
 
     /**
+     * 计划状态（NORMAL-正常，GENERATING-生成中，FAILED-生成失败）
+     */
+    private String status;
+
+    /**
      * 更新时间
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Shanghai")

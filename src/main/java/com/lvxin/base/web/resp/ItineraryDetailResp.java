@@ -56,6 +56,16 @@ public class ItineraryDetailResp {
     private Integer isCurrentVersion;
 
     /**
+     * 计划状态（NORMAL-正常，GENERATING-生成中，FAILED-生成失败）
+     */
+    private String status;
+
+    /**
+     * 错误信息（生成失败时记录）
+     */
+    private String errorMessage;
+
+    /**
      * 创建时间
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Shanghai")

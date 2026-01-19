@@ -65,11 +65,22 @@ public class ItineraryDO {
     /**
      * 计划表JSON数据
      * 作用：存储完整的计划表JSON数据（包括days等所有信息）
-     * 必填：是
+     * 必填：是（生成完成后必填）
      * 类型：LONGTEXT（支持大文本）
+     * 说明：生成中状态时可能为空
      */
     @TableField("json_data")
     private String jsonData;
+
+    /**
+     * 原始计划内容
+     * 作用：存储用户输入的原始文本或AI对话的markdown
+     * 必填：否
+     * 类型：LONGTEXT（支持大文本）
+     * 说明：用于追溯和重试生成
+     */
+    @TableField("original_plan")
+    private String originalPlan;
 
     /**
      * 用户版本号
@@ -98,6 +109,24 @@ public class ItineraryDO {
      */
     @TableField("is_current_version")
     private Integer isCurrentVersion;
+
+    /**
+     * 计划状态
+     * 作用：标记计划表的生成状态（NORMAL-正常，GENERATING-生成中，FAILED-生成失败）
+     * 必填：是
+     * 默认：NORMAL（正常）
+     */
+    @TableField("status")
+    private String status;
+
+    /**
+     * 错误信息
+     * 作用：记录生成失败时的错误原因
+     * 必填：否
+     * 说明：仅在状态为FAILED时使用
+     */
+    @TableField("error_message")
+    private String errorMessage;
 
     /**
      * 创建时间 - 记录创建时间
