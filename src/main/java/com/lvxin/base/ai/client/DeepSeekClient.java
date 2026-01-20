@@ -51,10 +51,32 @@ public class DeepSeekClient implements AIClient {
     
     @Override
     public String chat(String systemPrompt, List<ChatMessage> messages) {
+        return chat(null, systemPrompt, messages);
+    }
+
+    @Override
+    public String chat(String model, String systemPrompt, List<ChatMessage> messages) {
+        // 确定使用的模型
+        String targetModel = config.getDefaultModel();
+        if ("fast-model".equals(model)) {
+            // 快速模型，使用 deepseek-chat (V3)
+            targetModel = "deepseek-chat"; 
+        } else if ("smart-model".equals(model)) {
+            // 智能模型，优先尝试使用 deepseek-reasoner (R1)，如果未配置则回退到 default
+            // 注意：R1 目前API名称为 deepseek-reasoner
+            targetModel = "deepseek-reasoner";
+        } else if (model != null && !model.isEmpty()) {
+            targetModel = model;
+        }
+
+        return doChat(targetModel, systemPrompt, messages);
+    }
+
+    private String doChat(String modelName, String systemPrompt, List<ChatMessage> messages) {
         try {
             // 构建请求体
             JSONObject requestBody = new JSONObject();
-            requestBody.put("model", config.getDefaultModel());
+            requestBody.put("model", modelName);
             requestBody.put("temperature", 0.7);
             // 增加max_tokens以支持更长的JSON输出（从4000增加到8000）
             requestBody.put("max_tokens", 8000);
@@ -108,7 +130,10 @@ public class DeepSeekClient implements AIClient {
             requestBody.put("messages", messagesArray);
             
             // 如果启用工具调用，添加工具定义
-            if (config.getEnableTools() != null && config.getEnableTools()) {
+            // 注意：deepseek-reasoner (R1) 目前可能不支持 function calling，需根据官方文档确认
+            // 为了安全起见，如果是 reasoner 模型，暂时禁用工具调用，或者捕获不支持的错误
+            boolean isReasoner = modelName.contains("reasoner");
+            if (!isReasoner && config.getEnableTools() != null && config.getEnableTools()) {
                 JSONArray toolsArray = buildToolsDefinition();
                 if (!toolsArray.isEmpty()) {
                     requestBody.put("tools", toolsArray);
@@ -131,6 +156,12 @@ public class DeepSeekClient implements AIClient {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             
             if (response.statusCode() != 200) {
+                // 如果是 R1 模型报错（例如不支持），可以尝试回退到 V3
+                if (isReasoner && response.statusCode() == 400) {
+                    log.warn("DeepSeek R1调用失败，尝试回退到默认模型 (V3). 错误: {}", response.body());
+                    return doChat("deepseek-chat", systemPrompt, messages);
+                }
+                
                 log.error("DeepSeek API调用失败，状态码: {}, 响应: {}", response.statusCode(), response.body());
                 throw new BusinessException(ErrorCode.INTERNAL_ERROR, 
                         "DeepSeek服务调用失败，状态码: " + response.statusCode());
@@ -157,6 +188,12 @@ public class DeepSeekClient implements AIClient {
             
             // 直接返回内容
             String content = message.getString("content");
+            // R1 模型可能会返回 reasoning_content，也可以提取并记录日志
+            String reasoningContent = message.getString("reasoning_content");
+            if (reasoningContent != null) {
+                log.debug("DeepSeek R1 推理过程: {}", reasoningContent.substring(0, Math.min(reasoningContent.length(), 200)) + "...");
+            }
+            
             log.debug("DeepSeek回复成功，长度: {}", content != null ? content.length() : 0);
             return content != null ? content : "";
             

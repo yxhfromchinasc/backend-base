@@ -22,6 +22,19 @@ public interface AIClient {
     String chat(String systemPrompt, List<ChatMessage> messages);
     
     /**
+     * 发送聊天消息（指定模型）
+     *
+     * @param model        模型名称（支持别名，如 fast-model, smart-model）
+     * @param systemPrompt 系统提示词
+     * @param messages     对话历史
+     * @return AI回复
+     */
+    default String chat(String model, String systemPrompt, List<ChatMessage> messages) {
+        // 默认实现调用原方法，忽略模型参数
+        return chat(systemPrompt, messages);
+    }
+    
+    /**
      * 发送聊天消息（无系统提示词）
      *
      * @param messages 对话历史

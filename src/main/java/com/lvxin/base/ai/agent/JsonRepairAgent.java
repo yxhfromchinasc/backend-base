@@ -63,15 +63,7 @@ public class JsonRepairAgent {
         try {
             log.debug("开始修复JSON，原始长度: {}", brokenJson.length());
 
-            // 先尝试简单的自动修复
-            String autoFixed = autoRepair(brokenJson);
-            if (isValidJson(autoFixed)) {
-                log.debug("自动修复成功");
-                return autoFixed;
-            }
-
-            // 如果自动修复失败，使用AI修复
-            log.debug("自动修复失败，使用AI修复");
+            // 直接使用AI修复，不使用脆弱的自动修复逻辑
             String prompt = String.format(REPAIR_PROMPT_TEMPLATE, brokenJson);
             String repairedJson = aiClient.chat(prompt, Collections.emptyList());
 
@@ -82,59 +74,17 @@ public class JsonRepairAgent {
             if (isValidJson(extractedJson)) {
                 log.debug("AI修复成功，修复后长度: {}", extractedJson.length());
                 return extractedJson;
-            } else {
+            }
+            else {
                 log.warn("AI修复后仍然无效");
                 throw new RuntimeException("无法修复JSON");
             }
 
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.error("JSON修复失败", e);
             throw new RuntimeException("JSON修复失败：" + e.getMessage(), e);
         }
-    }
-
-    /**
-     * 自动修复常见的JSON错误
-     */
-    private String autoRepair(String json) {
-        String repaired = json.trim();
-
-        // 1. 如果以{开头但没有闭合，尝试补全
-        if (repaired.startsWith("{") && !repaired.endsWith("}")) {
-            int openBraces = countChar(repaired, '{');
-            int closeBraces = countChar(repaired, '}');
-            int missing = openBraces - closeBraces;
-            if (missing > 0) {
-                // 检查最后一个字符
-                char lastChar = repaired.charAt(repaired.length() - 1);
-                if (lastChar == ',' || lastChar == '"' || lastChar == ']' || lastChar == '}') {
-                    // 可能需要补全
-                } else {
-                    // 补全缺失的闭合括号
-                    repaired += "\n" + "}".repeat(missing);
-                }
-            }
-        }
-
-        // 2. 修复常见的引号问题
-        repaired = repaired.replaceAll("([{,:])\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*:", "$1\"$2\":");
-
-        // 3. 修复缺失的逗号（简单情况）
-        repaired = repaired.replaceAll("}\\s*{", "},{");
-        repaired = repaired.replaceAll("]\\s*\\[", "],[");
-
-        return repaired;
-    }
-
-    /**
-     * 统计字符出现次数
-     */
-    private int countChar(String str, char ch) {
-        int count = 0;
-        for (char c : str.toCharArray()) {
-            if (c == ch) count++;
-        }
-        return count;
     }
 
     /**
@@ -147,7 +97,8 @@ public class JsonRepairAgent {
         try {
             JSON.parse(json);
             return true;
-        } catch (JSONException e) {
+        }
+        catch (JSONException e) {
             return false;
         }
     }
