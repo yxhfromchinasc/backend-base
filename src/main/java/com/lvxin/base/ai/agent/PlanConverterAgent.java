@@ -1,7 +1,6 @@
 package com.lvxin.base.ai.agent;
 
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONException;
 import com.lvxin.base.ai.client.AIClient;
 import com.lvxin.base.ai.prompt.PlanConverterPrompt;
 import com.lvxin.base.exception.BusinessException;
@@ -25,10 +24,18 @@ public class PlanConverterAgent {
 
     private final AIClient aiClient;
     private final PlanConverterPrompt converterPrompt;
+    private final JsonValidatorAgent validatorAgent;
+    private final JsonRepairAgent repairAgent;
 
-    public PlanConverterAgent(AIClient aiClient, PlanConverterPrompt converterPrompt) {
+    // 最大重试次数
+    private static final int MAX_RETRIES = 3;
+
+    public PlanConverterAgent(AIClient aiClient, PlanConverterPrompt converterPrompt,
+                              JsonValidatorAgent validatorAgent, JsonRepairAgent repairAgent) {
         this.aiClient = aiClient;
         this.converterPrompt = converterPrompt;
+        this.validatorAgent = validatorAgent;
+        this.repairAgent = repairAgent;
     }
 
     // JSON代码块匹配模式
@@ -39,7 +46,7 @@ public class PlanConverterAgent {
 
 
     /**
-     * 转换Markdown计划为JSON字符串
+     * 转换Markdown计划为JSON字符串（带重试和多智能体协作）
      *
      * @param markdownPlan Markdown格式的计划
      * @return JSON格式的计划表字符串
@@ -49,30 +56,157 @@ public class PlanConverterAgent {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "计划内容不能为空");
         }
 
-        try {
-            log.debug("开始转换计划，计划长度: {}", markdownPlan.length());
+        Exception lastException = null;
+        
+        // 重试机制
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            long attemptStartTime = System.currentTimeMillis();
+            try {
+                log.info("  → [转换尝试 {}/{}] 开始转换计划，计划长度: {} 字符", 
+                        attempt, MAX_RETRIES, markdownPlan.length());
 
-            // 生成Prompt
-            String systemPrompt = converterPrompt.generateSystemPrompt(markdownPlan);
+                // 步骤1：生成JSON（生成器智能体）
+                log.info("  → [转换尝试 {}/{}] [步骤1] 调用AI生成JSON...", attempt, MAX_RETRIES);
+                long generateStart = System.currentTimeMillis();
+                String jsonString = generateJson(markdownPlan, attempt);
+                long generateDuration = System.currentTimeMillis() - generateStart;
+                log.info("  → [转换尝试 {}/{}] [步骤1] AI生成完成，耗时: {}ms, JSON长度: {} 字符", 
+                        attempt, MAX_RETRIES, generateDuration, jsonString != null ? jsonString.length() : 0);
 
-            // 调用AI转换
-            String aiResponse = aiClient.chat(systemPrompt, Collections.emptyList());
+                // 步骤2：验证JSON（验证器智能体）
+                log.info("  → [转换尝试 {}/{}] [步骤2] 验证JSON格式和结构...", attempt, MAX_RETRIES);
+                long validateStart = System.currentTimeMillis();
+                JsonValidatorAgent.ValidationResult validationResult = validatorAgent.validate(jsonString);
+                long validateDuration = System.currentTimeMillis() - validateStart;
+                
+                if (validationResult.isValid()) {
+                    log.info("  → [转换尝试 {}/{}] [步骤2] JSON验证通过，耗时: {}ms", 
+                            attempt, MAX_RETRIES, validateDuration);
+                    
+                    // 验证通过，补全缺失字段
+                    log.info("  → [转换尝试 {}/{}] [步骤3] 补全JSON缺失字段...", attempt, MAX_RETRIES);
+                    long completeStart = System.currentTimeMillis();
+                    jsonString = completeAndValidateItineraryJson(jsonString);
+                    long completeDuration = System.currentTimeMillis() - completeStart;
+                    long attemptDuration = System.currentTimeMillis() - attemptStartTime;
+                    
+                    log.info("  → [转换尝试 {}/{}] [步骤3] JSON补全完成，耗时: {}ms", 
+                            attempt, MAX_RETRIES, completeDuration);
+                    log.info("  → [转换尝试 {}/{}] ✅ 计划转换成功！总耗时: {}ms, 最终JSON长度: {} 字符", 
+                            attempt, MAX_RETRIES, attemptDuration, jsonString.length());
+                    return jsonString;
+                } else {
+                    log.warn("  → [转换尝试 {}/{}] [步骤2] JSON验证失败，耗时: {}ms", 
+                            attempt, MAX_RETRIES, validateDuration);
+                    log.warn("  → [转换尝试 {}/{}] 验证错误: {}", attempt, MAX_RETRIES, validationResult.getErrorMessage());
+                    if (!validationResult.getWarnings().isEmpty()) {
+                        log.warn("  → [转换尝试 {}/{}] 验证警告: {}", attempt, MAX_RETRIES, 
+                                String.join("; ", validationResult.getWarnings()));
+                    }
+                    
+                    // 验证失败，尝试修复
+                    log.info("  → [转换尝试 {}/{}] [步骤3] 尝试修复JSON...", attempt, MAX_RETRIES);
+                    try {
+                        long repairStart = System.currentTimeMillis();
+                        jsonString = repairAgent.repairJson(jsonString, markdownPlan);
+                        long repairDuration = System.currentTimeMillis() - repairStart;
+                        log.info("  → [转换尝试 {}/{}] [步骤3] JSON修复完成，耗时: {}ms, 修复后长度: {} 字符", 
+                                attempt, MAX_RETRIES, repairDuration, jsonString != null ? jsonString.length() : 0);
+                        
+                        // 再次验证
+                        log.info("  → [转换尝试 {}/{}] [步骤4] 重新验证修复后的JSON...", attempt, MAX_RETRIES);
+                        long revalidateStart = System.currentTimeMillis();
+                        validationResult = validatorAgent.validate(jsonString);
+                        long revalidateDuration = System.currentTimeMillis() - revalidateStart;
+                        
+                        if (validationResult.isValid()) {
+                            log.info("  → [转换尝试 {}/{}] [步骤4] 修复后验证通过，耗时: {}ms", 
+                                    attempt, MAX_RETRIES, revalidateDuration);
+                            
+                            log.info("  → [转换尝试 {}/{}] [步骤5] 补全修复后的JSON...", attempt, MAX_RETRIES);
+                            long completeStart = System.currentTimeMillis();
+                            jsonString = completeAndValidateItineraryJson(jsonString);
+                            long completeDuration = System.currentTimeMillis() - completeStart;
+                            long attemptDuration = System.currentTimeMillis() - attemptStartTime;
+                            
+                            log.info("  → [转换尝试 {}/{}] [步骤5] JSON补全完成，耗时: {}ms", 
+                                    attempt, MAX_RETRIES, completeDuration);
+                            log.info("  → [转换尝试 {}/{}] ✅ JSON修复成功！总耗时: {}ms, 最终JSON长度: {} 字符", 
+                                    attempt, MAX_RETRIES, attemptDuration, jsonString.length());
+                            return jsonString;
+                        } else {
+                            log.warn("  → [转换尝试 {}/{}] [步骤4] 修复后验证仍然失败，耗时: {}ms", 
+                                    attempt, MAX_RETRIES, revalidateDuration);
+                            log.warn("  → [转换尝试 {}/{}] 修复后验证错误: {}", attempt, MAX_RETRIES, 
+                                    validationResult.getErrorMessage());
+                        }
+                    } catch (Exception repairException) {
+                        log.error("  → [转换尝试 {}/{}] [步骤3] JSON修复失败: {}", 
+                                attempt, MAX_RETRIES, repairException.getMessage(), repairException);
+                    }
+                }
 
-            // 提取JSON（可能包含在代码块中）
-            String jsonString = extractJsonFromResponse(aiResponse);
+                // 如果最后一次尝试，抛出异常
+                if (attempt == MAX_RETRIES) {
+                    long attemptDuration = System.currentTimeMillis() - attemptStartTime;
+                    log.error("  → [转换尝试 {}/{}] ❌ 计划转换最终失败，总耗时: {}ms", 
+                            attempt, MAX_RETRIES, attemptDuration);
+                    throw new BusinessException(ErrorCode.INTERNAL_ERROR, 
+                            "计划转换失败，已重试" + MAX_RETRIES + "次：" + validationResult.getErrorMessage());
+                }
 
-            // 验证JSON格式
-            validateJson(jsonString);
+                // 等待后重试
+                int delaySeconds = attempt;
+                log.info("  → [转换尝试 {}/{}] 等待 {} 秒后重试...", attempt, MAX_RETRIES, delaySeconds);
+                Thread.sleep(1000 * delaySeconds); // 递增延迟：1s, 2s, 3s
 
-            log.debug("计划转换成功，JSON长度: {}", jsonString.length());
-            return jsonString;
-
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("计划转换失败", e);
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "计划转换失败：" + e.getMessage());
+            } catch (BusinessException e) {
+                throw e;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new BusinessException(ErrorCode.INTERNAL_ERROR, "转换过程被中断");
+            } catch (Exception e) {
+                lastException = e;
+                long attemptDuration = System.currentTimeMillis() - attemptStartTime;
+                log.warn("  → [转换尝试 {}/{}] ❌ 计划转换失败，耗时: {}ms, 错误: {}", 
+                        attempt, MAX_RETRIES, attemptDuration, e.getMessage());
+                
+                if (attempt == MAX_RETRIES) {
+                    log.error("  → [转换尝试 {}/{}] ❌ 计划转换最终失败，已重试{}次", 
+                            attempt, MAX_RETRIES, MAX_RETRIES, e);
+                    throw new BusinessException(ErrorCode.INTERNAL_ERROR, 
+                            "计划转换失败：" + e.getMessage());
+                }
+            }
         }
+
+        // 理论上不会到达这里
+        throw new BusinessException(ErrorCode.INTERNAL_ERROR, 
+                "计划转换失败：" + (lastException != null ? lastException.getMessage() : "未知错误"));
+    }
+
+    /**
+     * 生成JSON（生成器智能体）
+     */
+    private String generateJson(String markdownPlan, int attempt) {
+        // 生成Prompt
+        String systemPrompt = converterPrompt.generateSystemPrompt(markdownPlan);
+        
+        // 如果是重试，在prompt中添加提示
+        if (attempt > 1) {
+            systemPrompt += "\n\n**重要提示（第" + attempt + "次尝试）：**\n" +
+                    "- 请确保输出完整的JSON，不要截断\n" +
+                    "- 确保所有括号、引号都正确闭合\n" +
+                    "- 确保JSON格式完全正确，可以被解析\n";
+        }
+
+        // 调用AI转换
+        String aiResponse = aiClient.chat(systemPrompt, Collections.emptyList());
+
+        // 提取JSON（可能包含在代码块中）
+        String jsonString = extractJsonFromResponse(aiResponse);
+        
+        return jsonString;
     }
 
     /**
@@ -100,21 +234,6 @@ public class PlanConverterAgent {
         return response.trim();
     }
 
-    /**
-     * 验证JSON格式
-     */
-    private void validateJson(String jsonString) {
-        try {
-            // 尝试解析JSON
-            Object parsed = JSON.parse(jsonString);
-            if (parsed == null) {
-                throw new BusinessException(ErrorCode.INTERNAL_ERROR, "JSON解析结果为空");
-            }
-        } catch (JSONException e) {
-            log.error("JSON格式验证失败: {}", jsonString.substring(0, Math.min(200, jsonString.length())));
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "生成的JSON格式不正确：" + e.getMessage());
-        }
-    }
 
     /**
      * 补全和验证计划表JSON

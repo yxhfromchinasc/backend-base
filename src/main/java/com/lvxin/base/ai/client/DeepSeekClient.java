@@ -56,7 +56,8 @@ public class DeepSeekClient implements AIClient {
             JSONObject requestBody = new JSONObject();
             requestBody.put("model", config.getDefaultModel());
             requestBody.put("temperature", 0.7);
-            requestBody.put("max_tokens", 4000);
+            // 增加max_tokens以支持更长的JSON输出（从4000增加到8000）
+            requestBody.put("max_tokens", 8000);
             
             // 构建消息列表
             JSONArray messagesArray = new JSONArray();

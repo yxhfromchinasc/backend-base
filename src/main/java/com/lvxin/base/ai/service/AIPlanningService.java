@@ -209,34 +209,70 @@ public class AIPlanningService {
      * 异步执行计划转换（内部方法）
      */
     private void convertToItineraryAsync(String itineraryKey, String planMarkdown, Long userId) {
+        long startTime = System.currentTimeMillis();
+        log.info("========== 异步计划转换开始 ==========");
+        log.info("[{}] 开始异步转换计划", itineraryKey);
+        log.info("[{}] 用户ID: {}, 计划内容长度: {} 字符", itineraryKey, userId, planMarkdown != null ? planMarkdown.length() : 0);
+        
         try {
-            log.info("开始异步转换计划，itineraryKey: {}", itineraryKey);
-
-            // 调用智能体2转换
+            // 步骤1：调用智能体2转换
+            log.info("[{}] [步骤1/3] 开始调用AI转换器生成JSON...", itineraryKey);
+            long step1Start = System.currentTimeMillis();
             String jsonString = converterAgent.convertToJson(planMarkdown);
+            long step1Duration = System.currentTimeMillis() - step1Start;
+            log.info("[{}] [步骤1/3] AI转换完成，耗时: {}ms, JSON长度: {} 字符", 
+                    itineraryKey, step1Duration, jsonString != null ? jsonString.length() : 0);
 
-            // 补全和验证JSON
+            // 步骤2：补全和验证JSON
+            log.info("[{}] [步骤2/3] 开始补全和验证JSON...", itineraryKey);
+            long step2Start = System.currentTimeMillis();
             jsonString = converterAgent.completeAndValidateItineraryJson(jsonString);
+            long step2Duration = System.currentTimeMillis() - step2Start;
+            log.info("[{}] [步骤2/3] JSON补全完成，耗时: {}ms, 最终JSON长度: {} 字符", 
+                    itineraryKey, step2Duration, jsonString != null ? jsonString.length() : 0);
 
-            // 更新计划状态为正常，并保存JSON数据
+            // 步骤3：更新计划状态为正常，并保存JSON数据
+            log.info("[{}] [步骤3/3] 开始更新计划状态为NORMAL并保存JSON...", itineraryKey);
+            long step3Start = System.currentTimeMillis();
             itineraryService.updateItineraryStatus(
                     itineraryKey,
                     ItineraryStatus.NORMAL.name(),
                     jsonString,
                     null
             );
-
-            log.info("异步转换计划成功，itineraryKey: {}", itineraryKey);
+            long step3Duration = System.currentTimeMillis() - step3Start;
+            long totalDuration = System.currentTimeMillis() - startTime;
+            
+            log.info("[{}] [步骤3/3] 计划状态更新完成，耗时: {}ms", itineraryKey, step3Duration);
+            log.info("[{}] ✅ 异步转换计划成功！总耗时: {}ms (步骤1: {}ms, 步骤2: {}ms, 步骤3: {}ms)", 
+                    itineraryKey, totalDuration, step1Duration, step2Duration, step3Duration);
+            log.info("========== 异步计划转换完成 ==========");
 
         } catch (Exception e) {
-            log.error("异步转换计划失败，itineraryKey: {}", itineraryKey, e);
+            long totalDuration = System.currentTimeMillis() - startTime;
+            log.error("[{}] ❌ 异步转换计划失败，总耗时: {}ms", itineraryKey, totalDuration, e);
+            log.error("[{}] 错误类型: {}, 错误消息: {}", 
+                    itineraryKey, e.getClass().getSimpleName(), e.getMessage());
+            
             // 更新状态为失败
-            itineraryService.updateItineraryStatus(
-                    itineraryKey,
-                    ItineraryStatus.FAILED.name(),
-                    null,
-                    "生成失败：" + e.getMessage()
-            );
+            String errorMessage = "生成失败：" + e.getMessage();
+            if (errorMessage.length() > 500) {
+                errorMessage = errorMessage.substring(0, 497) + "...";
+            }
+            
+            try {
+                itineraryService.updateItineraryStatus(
+                        itineraryKey,
+                        ItineraryStatus.FAILED.name(),
+                        null,
+                        errorMessage
+                );
+                log.info("[{}] 计划状态已更新为FAILED", itineraryKey);
+            } catch (Exception updateException) {
+                log.error("[{}] 更新计划状态为FAILED时发生异常", itineraryKey, updateException);
+            }
+            
+            log.info("========== 异步计划转换失败 ==========");
         }
     }
 
@@ -304,34 +340,70 @@ public class AIPlanningService {
      * 异步执行文本转计划表（内部方法）
      */
     private void convertTextToItineraryAsync(String itineraryKey, String text, Long userId) {
+        long startTime = System.currentTimeMillis();
+        log.info("========== 异步文本转计划表开始 ==========");
+        log.info("[{}] 开始异步转换文本计划", itineraryKey);
+        log.info("[{}] 用户ID: {}, 文本长度: {} 字符", itineraryKey, userId, text != null ? text.length() : 0);
+        
         try {
-            log.info("开始异步转换文本计划，itineraryKey: {}", itineraryKey);
-
-            // 调用智能体2转换
+            // 步骤1：调用智能体2转换
+            log.info("[{}] [步骤1/3] 开始调用AI转换器生成JSON...", itineraryKey);
+            long step1Start = System.currentTimeMillis();
             String jsonString = converterAgent.convertToJson(text);
+            long step1Duration = System.currentTimeMillis() - step1Start;
+            log.info("[{}] [步骤1/3] AI转换完成，耗时: {}ms, JSON长度: {} 字符", 
+                    itineraryKey, step1Duration, jsonString != null ? jsonString.length() : 0);
 
-            // 补全和验证JSON
+            // 步骤2：补全和验证JSON
+            log.info("[{}] [步骤2/3] 开始补全和验证JSON...", itineraryKey);
+            long step2Start = System.currentTimeMillis();
             jsonString = converterAgent.completeAndValidateItineraryJson(jsonString);
+            long step2Duration = System.currentTimeMillis() - step2Start;
+            log.info("[{}] [步骤2/3] JSON补全完成，耗时: {}ms, 最终JSON长度: {} 字符", 
+                    itineraryKey, step2Duration, jsonString != null ? jsonString.length() : 0);
 
-            // 更新计划状态为正常，并保存JSON数据
+            // 步骤3：更新计划状态为正常，并保存JSON数据
+            log.info("[{}] [步骤3/3] 开始更新计划状态为NORMAL并保存JSON...", itineraryKey);
+            long step3Start = System.currentTimeMillis();
             itineraryService.updateItineraryStatus(
                     itineraryKey,
                     ItineraryStatus.NORMAL.name(),
                     jsonString,
                     null
             );
-
-            log.info("异步转换文本计划成功，itineraryKey: {}", itineraryKey);
+            long step3Duration = System.currentTimeMillis() - step3Start;
+            long totalDuration = System.currentTimeMillis() - startTime;
+            
+            log.info("[{}] [步骤3/3] 计划状态更新完成，耗时: {}ms", itineraryKey, step3Duration);
+            log.info("[{}] ✅ 异步转换文本计划成功！总耗时: {}ms (步骤1: {}ms, 步骤2: {}ms, 步骤3: {}ms)", 
+                    itineraryKey, totalDuration, step1Duration, step2Duration, step3Duration);
+            log.info("========== 异步文本转计划表完成 ==========");
 
         } catch (Exception e) {
-            log.error("异步转换文本计划失败，itineraryKey: {}", itineraryKey, e);
+            long totalDuration = System.currentTimeMillis() - startTime;
+            log.error("[{}] ❌ 异步转换文本计划失败，总耗时: {}ms", itineraryKey, totalDuration, e);
+            log.error("[{}] 错误类型: {}, 错误消息: {}", 
+                    itineraryKey, e.getClass().getSimpleName(), e.getMessage());
+            
             // 更新状态为失败
-            itineraryService.updateItineraryStatus(
-                    itineraryKey,
-                    ItineraryStatus.FAILED.name(),
-                    null,
-                    "生成失败：" + e.getMessage()
-            );
+            String errorMessage = "生成失败：" + e.getMessage();
+            if (errorMessage.length() > 500) {
+                errorMessage = errorMessage.substring(0, 497) + "...";
+            }
+            
+            try {
+                itineraryService.updateItineraryStatus(
+                        itineraryKey,
+                        ItineraryStatus.FAILED.name(),
+                        null,
+                        errorMessage
+                );
+                log.info("[{}] 计划状态已更新为FAILED", itineraryKey);
+            } catch (Exception updateException) {
+                log.error("[{}] 更新计划状态为FAILED时发生异常", itineraryKey, updateException);
+            }
+            
+            log.info("========== 异步文本转计划表失败 ==========");
         }
     }
 
