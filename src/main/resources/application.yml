@@ -113,14 +113,13 @@ info:
 
 # 对象存储（腾讯云 COS）配置（可选，根据业务需求配置）
 cos:
-  secret-id: your-secret-id
-  secret-key: your-secret-key
+  secret-id: ${CLS_SECRET_ID}
+  secret-key: ${CLS_SECRET_KEY}
   # 默认桶名
-  bucket: your-bucket-name
+  bucket: lvxin-1314898786
   # 区域
-  region: ap-chengdu
+  region: ap-nanjing
   # 自定义访问域名（可选）
-  domain: https://your-domain.com
 
 # 管理端点配置
 management:
