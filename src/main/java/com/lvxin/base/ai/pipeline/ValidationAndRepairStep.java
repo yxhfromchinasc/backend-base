@@ -2,6 +2,7 @@ package com.lvxin.base.ai.pipeline;
 
 import com.lvxin.base.ai.agent.JsonValidatorAgent;
 import com.lvxin.base.ai.client.AIClient;
+import com.lvxin.base.ai.monitor.PerformanceMonitorContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -43,7 +44,14 @@ public class ValidationAndRepairStep implements ConversionPipelineStep {
     public String process(String currentJson, String originalMarkdown) {
         log.info("[Pipeline] Step 2: Validating and Repairing...");
 
+        // JSON验证
+        PerformanceMonitorContext.recordStage("JSON验证开始");
+        long validateStartTime = System.currentTimeMillis();
         JsonValidatorAgent.ValidationResult result = validatorAgent.validate(currentJson);
+        long validateDuration = System.currentTimeMillis() - validateStartTime;
+        PerformanceMonitorContext.recordDuration("JSON验证", validateDuration);
+        PerformanceMonitorContext.recordStage("JSON验证完成");
+        
         if (result.isValid()) {
             log.info("JSON验证通过，无需修复");
             return currentJson;
@@ -52,12 +60,34 @@ public class ValidationAndRepairStep implements ConversionPipelineStep {
         log.warn("JSON验证失败: {}，尝试AI修复...", result.getErrorMessage());
 
         try {
+            // 构建修复提示词
+            long promptStartTime = System.currentTimeMillis();
             String prompt = String.format(REPAIR_PROMPT_TEMPLATE, currentJson, result.getErrorMessage());
-            String repaired = aiClient.chat(prompt, Collections.emptyList());
+            long promptDuration = System.currentTimeMillis() - promptStartTime;
+            PerformanceMonitorContext.recordDuration("构建修复提示词", promptDuration);
+            
+            // AI修复调用
+            PerformanceMonitorContext.recordStage("AI修复调用开始");
+            long repairStartTime = System.currentTimeMillis();
+            // 修复使用 fast-model，因为修复任务相对简单，不需要推理模型
+            String repaired = aiClient.chat("fast-model", prompt, Collections.emptyList());
+            long repairDuration = System.currentTimeMillis() - repairStartTime;
+            PerformanceMonitorContext.recordDuration("AI修复调用", repairDuration);
+            PerformanceMonitorContext.recordStage("AI修复调用完成");
+            
+            // 提取修复后的JSON
+            long extractStartTime = System.currentTimeMillis();
             String extracted = extractJson(repaired);
+            long extractDuration = System.currentTimeMillis() - extractStartTime;
+            PerformanceMonitorContext.recordDuration("提取修复后的JSON", extractDuration);
 
             // 二次验证
-            if (validatorAgent.validate(extracted).isValid()) {
+            long revalidateStartTime = System.currentTimeMillis();
+            boolean isValid = validatorAgent.validate(extracted).isValid();
+            long revalidateDuration = System.currentTimeMillis() - revalidateStartTime;
+            PerformanceMonitorContext.recordDuration("二次验证", revalidateDuration);
+            
+            if (isValid) {
                 log.info("AI修复成功");
                 return extracted;
             } else {

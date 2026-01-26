@@ -43,4 +43,26 @@ public class DeepSeekConfig {
      * 是否启用工具调用
      */
     private Boolean enableTools = true;
+    
+    /**
+     * Temperature参数（0.0-2.0），控制输出的随机性
+     * 较低的值使输出更确定，较高值使输出更随机
+     * 默认0.7，可以降低到0.3-0.5以加快速度
+     */
+    private Double temperature = 0.7;
+    
+    /**
+     * 最大输出token数
+     * 降低此值可以减少生成时间，但可能截断输出
+     * 默认8000，可以根据实际需求调整（如4000-6000）
+     */
+    private Integer maxTokens = 8000;
+    
+    /**
+     * 工具调用策略
+     * "auto": 让模型自动决定是否调用工具（默认）
+     * "none": 禁用工具调用，加快速度但失去工具功能
+     * "required": 强制调用工具（如果配置了工具）
+     */
+    private String toolChoice = "auto";
 }

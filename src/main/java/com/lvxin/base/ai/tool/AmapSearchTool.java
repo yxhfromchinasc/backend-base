@@ -64,6 +64,7 @@ public class AmapSearchTool implements SearchTool {
     
     @Override
     public String execute(String params) {
+        long startTime = System.currentTimeMillis();
         if (!enabled || apiKey == null || apiKey.isEmpty()) {
             log.warn("高德地图API未启用或未配置API Key");
             return JSON.toJSONString(new JSONObject().fluentPut("error", "高德地图服务未启用"));
@@ -73,24 +74,35 @@ public class AmapSearchTool implements SearchTool {
             JSONObject paramObj = JSON.parseObject(params);
             String type = paramObj.getString("type");
             
+            String result;
             switch (type) {
                 case "place":
-                    return searchPlace(paramObj);
+                    result = searchPlace(paramObj);
+                    break;
                 case "route":
-                    return searchRoute(paramObj);
+                    result = searchRoute(paramObj);
+                    break;
                 case "walking":
-                    return searchWalking(paramObj);
+                    result = searchWalking(paramObj);
+                    break;
                 case "bus":
-                    return searchBus(paramObj);
+                    result = searchBus(paramObj);
+                    break;
                 case "around":
-                    return searchAround(paramObj);
+                    result = searchAround(paramObj);
+                    break;
                 case "weather":
-                    return searchWeather(paramObj);
+                    result = searchWeather(paramObj);
+                    break;
                 default:
-                    return JSON.toJSONString(new JSONObject().fluentPut("error", "不支持的类型: " + type));
+                    result = JSON.toJSONString(new JSONObject().fluentPut("error", "不支持的类型: " + type));
             }
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("高德地图工具执行完成: type={}, 耗时={}ms", type, duration);
+            return result;
         } catch (Exception e) {
-            log.error("高德地图搜索失败", e);
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("高德地图搜索失败，耗时={}ms", duration, e);
             return JSON.toJSONString(new JSONObject().fluentPut("error", "搜索失败: " + e.getMessage()));
         }
     }
@@ -124,7 +136,10 @@ public class AmapSearchTool implements SearchTool {
             }
             
             try {
+                long httpStartTime = System.currentTimeMillis();
                 String response = httpClientUtil.get(url);
+                long httpDuration = System.currentTimeMillis() - httpStartTime;
+                log.info("高德地图地点搜索HTTP调用完成: query={}, HTTP耗时={}ms", query, httpDuration);
                 log.debug("高德地图API响应: {}", response);
                 return response;
             } catch (Exception e) {
@@ -171,7 +186,11 @@ public class AmapSearchTool implements SearchTool {
             }
             
             try {
+                long httpStartTime = System.currentTimeMillis();
                 String response = httpClientUtil.get(url);
+                long httpDuration = System.currentTimeMillis() - httpStartTime;
+                log.info("高德地图路径规划HTTP调用完成: origin={}, destination={}, HTTP耗时={}ms", 
+                        origin, destination, httpDuration);
                 log.debug("高德地图API响应: {}", response);
                 return response;
             } catch (Exception e) {
@@ -213,7 +232,11 @@ public class AmapSearchTool implements SearchTool {
             }
             
             try {
+                long httpStartTime = System.currentTimeMillis();
                 String response = httpClientUtil.get(url);
+                long httpDuration = System.currentTimeMillis() - httpStartTime;
+                log.info("高德地图公交查询HTTP调用完成: origin={}, destination={}, HTTP耗时={}ms", 
+                        origin, destination, httpDuration);
                 log.debug("高德地图API响应: {}", response);
                 return response;
             } catch (Exception e) {
@@ -255,7 +278,11 @@ public class AmapSearchTool implements SearchTool {
             }
             
             try {
+                long httpStartTime = System.currentTimeMillis();
                 String response = httpClientUtil.get(url);
+                long httpDuration = System.currentTimeMillis() - httpStartTime;
+                log.info("高德地图步行规划HTTP调用完成: origin={}, destination={}, HTTP耗时={}ms", 
+                        origin, destination, httpDuration);
                 log.debug("高德地图API响应: {}", response);
                 return response;
             } catch (Exception e) {
@@ -307,7 +334,11 @@ public class AmapSearchTool implements SearchTool {
             }
             
             try {
+                long httpStartTime = System.currentTimeMillis();
                 String response = httpClientUtil.get(url);
+                long httpDuration = System.currentTimeMillis() - httpStartTime;
+                log.info("高德地图周边搜索HTTP调用完成: location={}, keywords={}, HTTP耗时={}ms", 
+                        location, keywords, httpDuration);
                 log.debug("高德地图API响应: {}", response);
                 return response;
             } catch (Exception e) {
@@ -352,7 +383,10 @@ public class AmapSearchTool implements SearchTool {
             }
             
             try {
+                long httpStartTime = System.currentTimeMillis();
                 String response = httpClientUtil.get(url);
+                long httpDuration = System.currentTimeMillis() - httpStartTime;
+                log.info("高德地图天气查询HTTP调用完成: city={}, HTTP耗时={}ms", city, httpDuration);
                 log.debug("高德地图API响应: {}", response);
                 return response;
             } catch (Exception e) {

@@ -60,6 +60,7 @@ public class WebSearchTool implements SearchTool {
     
     @Override
     public String execute(String params) {
+        long startTime = System.currentTimeMillis();
         if (!enabled) {
             log.warn("网络搜索工具未启用");
             return JSON.toJSONString(new JSONObject().fluentPut("error", "网络搜索服务未启用"));
@@ -73,20 +74,26 @@ public class WebSearchTool implements SearchTool {
             log.info("调用网络搜索: query={}, provider={}, maxResults={}", query, provider, maxResults);
             
             // 使用高德地图POI搜索作为网络搜索的替代方案
+            String result;
             if ("amap".equals(provider) || amapApiKey != null && !amapApiKey.isEmpty()) {
-                return searchWithAmap(query, maxResults);
+                result = searchWithAmap(query, maxResults);
+            } else {
+                // 如果没有配置高德地图，返回模拟数据
+                JSONObject resultObj = new JSONObject();
+                resultObj.put("success", true);
+                resultObj.put("message", "网络搜索功能需要配置高德地图API Key");
+                resultObj.put("query", query);
+                resultObj.put("results", new JSONArray());
+                result = JSON.toJSONString(resultObj);
             }
             
-            // 如果没有配置高德地图，返回模拟数据
-            JSONObject result = new JSONObject();
-            result.put("success", true);
-            result.put("message", "网络搜索功能需要配置高德地图API Key");
-            result.put("query", query);
-            result.put("results", new JSONArray());
-            return JSON.toJSONString(result);
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("网络搜索工具执行完成: query={}, 耗时={}ms", query, duration);
+            return result;
             
         } catch (Exception e) {
-            log.error("网络搜索失败", e);
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("网络搜索失败，耗时={}ms", duration, e);
             return JSON.toJSONString(new JSONObject().fluentPut("error", e.getMessage()));
         }
     }
@@ -117,7 +124,10 @@ public class WebSearchTool implements SearchTool {
             
             log.debug("调用高德地图POI搜索: query={}, URL: {}", query, url);
             
+            long httpStartTime = System.currentTimeMillis();
             String response = httpClientUtil.get(url);
+            long httpDuration = System.currentTimeMillis() - httpStartTime;
+            log.info("网络搜索HTTP调用完成: query={}, HTTP耗时={}ms", query, httpDuration);
             JSONObject jsonResponse = JSON.parseObject(response);
             
             if ("1".equals(jsonResponse.getString("status"))) {

@@ -2,6 +2,7 @@ package com.lvxin.base.ai.config;
 
 import com.lvxin.base.ai.client.AIClient;
 import com.lvxin.base.ai.client.DeepSeekClient;
+import com.lvxin.base.ai.config.DeepSeekConfig;
 import com.lvxin.base.ai.tool.ToolManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

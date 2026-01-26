@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.lvxin.base.ai.config.DeepSeekConfig;
 import com.lvxin.base.ai.model.ChatMessage;
+import com.lvxin.base.ai.monitor.PerformanceMonitorContext;
 import com.lvxin.base.ai.tool.ToolManager;
 import com.lvxin.base.exception.BusinessException;
 import com.lvxin.base.exception.ErrorCode;
@@ -77,9 +78,10 @@ public class DeepSeekClient implements AIClient {
             // 构建请求体
             JSONObject requestBody = new JSONObject();
             requestBody.put("model", modelName);
-            requestBody.put("temperature", 0.7);
-            // 增加max_tokens以支持更长的JSON输出（从4000增加到8000）
-            requestBody.put("max_tokens", 8000);
+            // 使用配置的temperature，默认0.7
+            requestBody.put("temperature", config.getTemperature() != null ? config.getTemperature() : 0.7);
+            // 使用配置的max_tokens，默认8000
+            requestBody.put("max_tokens", config.getMaxTokens() != null ? config.getMaxTokens() : 8000);
             
             // 构建消息列表
             JSONArray messagesArray = new JSONArray();
@@ -137,13 +139,20 @@ public class DeepSeekClient implements AIClient {
                 JSONArray toolsArray = buildToolsDefinition();
                 if (!toolsArray.isEmpty()) {
                     requestBody.put("tools", toolsArray);
-                    requestBody.put("tool_choice", "auto"); // 让模型自动决定是否调用工具
+                    // 使用配置的tool_choice，默认"auto"
+                    String toolChoice = config.getToolChoice() != null ? config.getToolChoice() : "auto";
+                    requestBody.put("tool_choice", toolChoice);
+                    log.debug("工具调用配置: tool_choice={}", toolChoice);
                 }
             }
             
             // 发送请求
             String requestBodyStr = JSON.toJSONString(requestBody);
             log.debug("DeepSeek请求: {}", requestBodyStr);
+            
+            // 记录HTTP请求开始
+            PerformanceMonitorContext.recordStage("DeepSeek HTTP请求开始");
+            long httpRequestStartTime = System.currentTimeMillis();
             
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(config.getBaseUrl() + "/v1/chat/completions"))
@@ -154,6 +163,10 @@ public class DeepSeekClient implements AIClient {
                     .build();
             
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            long httpRequestDuration = System.currentTimeMillis() - httpRequestStartTime;
+            PerformanceMonitorContext.recordDuration("DeepSeek HTTP请求", httpRequestDuration);
+            PerformanceMonitorContext.recordStage("DeepSeek HTTP请求完成");
             
             if (response.statusCode() != 200) {
                 // 如果是 R1 模型报错（例如不支持），可以尝试回退到 V3
@@ -179,9 +192,16 @@ public class DeepSeekClient implements AIClient {
             JSONObject firstChoice = choices.getJSONObject(0);
             JSONObject message = firstChoice.getJSONObject("message");
             
+            // 解析响应
+            long parseStartTime = System.currentTimeMillis();
+            PerformanceMonitorContext.recordStage("解析AI响应开始");
+            
             // 检查是否有工具调用
             JSONArray toolCalls = message.getJSONArray("tool_calls");
             if (toolCalls != null && !toolCalls.isEmpty()) {
+                long parseDuration = System.currentTimeMillis() - parseStartTime;
+                PerformanceMonitorContext.recordDuration("解析AI响应", parseDuration);
+                PerformanceMonitorContext.recordStage("解析AI响应完成");
                 // 处理工具调用
                 return handleToolCalls(message, systemPrompt, messages);
             }
@@ -193,6 +213,10 @@ public class DeepSeekClient implements AIClient {
             if (reasoningContent != null) {
                 log.debug("DeepSeek R1 推理过程: {}", reasoningContent.substring(0, Math.min(reasoningContent.length(), 200)) + "...");
             }
+            
+            long parseDuration = System.currentTimeMillis() - parseStartTime;
+            PerformanceMonitorContext.recordDuration("解析AI响应", parseDuration);
+            PerformanceMonitorContext.recordStage("解析AI响应完成");
             
             log.debug("DeepSeek回复成功，长度: {}", content != null ? content.length() : 0);
             return content != null ? content : "";
@@ -237,6 +261,9 @@ public class DeepSeekClient implements AIClient {
      * 处理工具调用
      */
     private String handleToolCalls(JSONObject message, String systemPrompt, List<ChatMessage> messages) {
+        PerformanceMonitorContext.recordStage("工具调用处理开始");
+        long toolCallsStartTime = System.currentTimeMillis();
+        
         try {
             JSONArray toolCalls = message.getJSONArray("tool_calls");
             if (toolCalls == null || toolCalls.isEmpty()) {
@@ -245,14 +272,19 @@ public class DeepSeekClient implements AIClient {
             
             // 执行所有工具调用
             List<JSONObject> toolResults = new ArrayList<>();
+            int toolCallCount = toolCalls.size();
+            log.info("检测到 {} 个工具调用", toolCallCount);
+            
             for (int i = 0; i < toolCalls.size(); i++) {
                 JSONObject toolCall = toolCalls.getJSONObject(i);
                 JSONObject function = toolCall.getJSONObject("function");
                 String toolName = function.getString("name");
                 String arguments = function.getString("arguments");
                 
-                // 执行工具
+                // 执行工具（ToolManager内部已经有监控）
+                PerformanceMonitorContext.recordStage("执行工具-" + toolName);
                 String toolResult = toolManager.executeTool(toolName, arguments);
+                PerformanceMonitorContext.recordStage("工具执行完成-" + toolName);
                 
                 // 构建工具调用结果
                 JSONObject toolResultObj = new JSONObject();
@@ -263,7 +295,13 @@ public class DeepSeekClient implements AIClient {
                 toolResults.add(toolResultObj);
             }
             
+            long toolCallsDuration = System.currentTimeMillis() - toolCallsStartTime;
+            PerformanceMonitorContext.recordDuration("所有工具调用总耗时", toolCallsDuration);
+            
             // 将工具调用结果添加到消息历史，再次调用AI生成最终回复
+            long buildMessagesStartTime = System.currentTimeMillis();
+            PerformanceMonitorContext.recordStage("构建扩展消息开始");
+            
             List<ChatMessage> extendedMessages = new ArrayList<>(messages);
             
             // 添加AI的工具调用消息（需要包含tool_calls）
@@ -294,10 +332,20 @@ public class DeepSeekClient implements AIClient {
                         .build());
             }
             
+            long buildMessagesDuration = System.currentTimeMillis() - buildMessagesStartTime;
+            PerformanceMonitorContext.recordDuration("构建扩展消息", buildMessagesDuration);
+            PerformanceMonitorContext.recordStage("构建扩展消息完成");
+            
             // 再次调用AI，生成最终回复
-            return chat(systemPrompt, extendedMessages);
+            PerformanceMonitorContext.recordStage("AI二次调用开始");
+            String result = chat(systemPrompt, extendedMessages);
+            PerformanceMonitorContext.recordStage("AI二次调用完成");
+            
+            return result;
             
         } catch (Exception e) {
+            long toolCallsDuration = System.currentTimeMillis() - toolCallsStartTime;
+            PerformanceMonitorContext.recordDuration("工具调用处理总耗时(失败)", toolCallsDuration);
             log.error("处理工具调用失败", e);
             return message.getString("content") + "\n\n[工具调用失败: " + e.getMessage() + "]";
         }

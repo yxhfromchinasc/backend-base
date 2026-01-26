@@ -1,6 +1,7 @@
 package com.lvxin.base.ai.pipeline;
 
 import com.lvxin.base.ai.client.AIClient;
+import com.lvxin.base.ai.monitor.PerformanceMonitorContext;
 import com.lvxin.base.ai.prompt.PlanConverterPrompt;
 import com.lvxin.base.exception.BusinessException;
 import com.lvxin.base.exception.ErrorCode;
@@ -37,10 +38,28 @@ public class AiGeneratorStep implements ConversionPipelineStep {
     public String process(String currentJson, String originalMarkdown) {
         log.info("[Pipeline] Step 1: Generating JSON from Markdown...");
         
+        // 生成系统提示词
+        long promptStartTime = System.currentTimeMillis();
         String systemPrompt = converterPrompt.generateSystemPrompt(originalMarkdown);
-        String aiResponse = aiClient.chat(systemPrompt, Collections.emptyList());
+        long promptDuration = System.currentTimeMillis() - promptStartTime;
+        PerformanceMonitorContext.recordDuration("生成系统提示词", promptDuration);
         
+        // AI调用
+        PerformanceMonitorContext.recordStage("AI调用开始");
+        long aiStartTime = System.currentTimeMillis();
+        // 使用 fast-model (deepseek-chat V3) 提升速度，质量仍然很好
+        // 如果发现质量不够，可以改为 "smart-model" 或移除模型参数使用默认模型
+        String aiResponse = aiClient.chat("fast-model", systemPrompt, Collections.emptyList());
+        long aiDuration = System.currentTimeMillis() - aiStartTime;
+        PerformanceMonitorContext.recordDuration("AI生成响应", aiDuration);
+        PerformanceMonitorContext.recordStage("AI调用完成");
+        
+        // 提取JSON
+        long extractStartTime = System.currentTimeMillis();
         String extracted = extractJson(aiResponse);
+        long extractDuration = System.currentTimeMillis() - extractStartTime;
+        PerformanceMonitorContext.recordDuration("提取JSON", extractDuration);
+        
         if (extracted == null || extracted.isEmpty()) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "AI生成结果不包含有效JSON");
         }

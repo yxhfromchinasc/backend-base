@@ -60,6 +60,7 @@ public class DianpingSearchTool implements SearchTool {
     
     @Override
     public String execute(String params) {
+        long startTime = System.currentTimeMillis();
         if (!enabled) {
             log.warn("大众点评搜索工具未启用");
             return JSON.toJSONString(new JSONObject().fluentPut("error", "大众点评服务未启用"));
@@ -76,10 +77,15 @@ public class DianpingSearchTool implements SearchTool {
             log.info("调用大众点评搜索: type={}, location={}, keyword={}", type, location, keyword);
             
             // 使用高德地图POI搜索作为替代方案
-            return searchWithAmap(type, location, keyword, priceRange, cuisine);
+            String result = searchWithAmap(type, location, keyword, priceRange, cuisine);
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("大众点评工具执行完成: type={}, location={}, keyword={}, 耗时={}ms", 
+                    type, location, keyword, duration);
+            return result;
             
         } catch (Exception e) {
-            log.error("大众点评搜索失败", e);
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("大众点评搜索失败，耗时={}ms", duration, e);
             return JSON.toJSONString(new JSONObject().fluentPut("error", e.getMessage()));
         }
     }
@@ -148,7 +154,11 @@ public class DianpingSearchTool implements SearchTool {
             log.debug("调用高德地图POI搜索（替代大众点评）: type={}, keywords={}, location={}, URL: {}", 
                     type, keywords, location, url);
             
+            long httpStartTime = System.currentTimeMillis();
             String response = httpClientUtil.get(url);
+            long httpDuration = System.currentTimeMillis() - httpStartTime;
+            log.info("大众点评搜索HTTP调用完成: type={}, keywords={}, HTTP耗时={}ms", 
+                    type, keywords, httpDuration);
             JSONObject jsonResponse = JSON.parseObject(response);
             
             if ("1".equals(jsonResponse.getString("status"))) {

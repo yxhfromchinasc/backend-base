@@ -1,6 +1,8 @@
 package com.lvxin.base.ai.event;
 
 import com.lvxin.base.ai.agent.PlanConverterAgent;
+import com.lvxin.base.ai.monitor.PerformanceMonitor;
+import com.lvxin.base.ai.monitor.PerformanceMonitorContext;
 import com.lvxin.base.constant.ItineraryStatus;
 import com.lvxin.base.service.ItineraryService;
 import lombok.extern.slf4j.Slf4j;
@@ -39,32 +41,49 @@ public class ItineraryGenerationListener {
         String planMarkdown = event.getPlanMarkdown();
         Long userId = event.getUserId();
         
-        long startTime = System.currentTimeMillis();
-        log.info("========== [Event] 异步计划转换开始 ==========");
-        log.info("[{}] 开始处理生成事件，用户ID: {}", itineraryKey, userId);
+        // 创建性能监控器
+        PerformanceMonitor monitor = new PerformanceMonitor("ItineraryGeneration-" + itineraryKey);
+        PerformanceMonitorContext.setMonitor(monitor);
         
         try {
+            log.info("========== [Event] 异步计划转换开始 ==========");
+            log.info("[{}] 开始处理生成事件，用户ID: {}", itineraryKey, userId);
+            
+            monitor.recordStage("任务开始");
+            
             // 步骤1：调用转换Agent生成JSON
             // 注意：converterAgent内部已经重构为使用Retryable和Pipeline
+            long convertStartTime = System.currentTimeMillis();
+            monitor.recordStage("开始转换");
             String jsonString = converterAgent.convertToJson(planMarkdown);
+            long convertDuration = System.currentTimeMillis() - convertStartTime;
+            monitor.recordDuration("计划转换", convertDuration);
+            monitor.recordStage("转换完成");
             
             // 步骤2：补全和验证JSON (这一步也可以移入Pipeline，但目前保留在Service层逻辑中或此处)
             // 由于PlanConverterAgent现在通过Pipeline返回最终JSON，这里假设返回的已经是验证过的
             
             // 步骤3：更新计划状态为正常，并保存JSON数据
+            long saveStartTime = System.currentTimeMillis();
+            monitor.recordStage("开始保存");
             itineraryService.updateItineraryStatus(
                     itineraryKey,
                     ItineraryStatus.NORMAL.name(),
                     jsonString,
                     null
             );
+            long saveDuration = System.currentTimeMillis() - saveStartTime;
+            monitor.recordDuration("保存到数据库", saveDuration);
+            monitor.recordStage("保存完成");
             
-            long totalDuration = System.currentTimeMillis() - startTime;
-            log.info("[{}] ✅ 计划转换并保存成功！总耗时: {}ms", itineraryKey, totalDuration);
+            // 输出性能报告
+            monitor.logPerformanceReport();
+            log.info("[{}] ✅ 计划转换并保存成功！", itineraryKey);
             
         } catch (Exception e) {
-            long totalDuration = System.currentTimeMillis() - startTime;
-            log.error("[{}] ❌ 计划转换失败，总耗时: {}ms", itineraryKey, totalDuration, e);
+            monitor.recordStage("任务失败");
+            monitor.logPerformanceReport();
+            log.error("[{}] ❌ 计划转换失败", itineraryKey, e);
             
             // 更新状态为失败
             String errorMessage = "生成失败：" + e.getMessage();
@@ -80,7 +99,10 @@ public class ItineraryGenerationListener {
             } catch (Exception updateEx) {
                 log.error("[{}] 更新失败状态异常", itineraryKey, updateEx);
             }
+        } finally {
+            // 清理ThreadLocal
+            PerformanceMonitorContext.clear();
+            log.info("========== [Event] 异步计划转换结束 ==========");
         }
-        log.info("========== [Event] 异步计划转换结束 ==========");
     }
 }

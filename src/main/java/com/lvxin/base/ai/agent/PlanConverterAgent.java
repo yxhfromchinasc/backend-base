@@ -1,5 +1,6 @@
 package com.lvxin.base.ai.agent;
 
+import com.lvxin.base.ai.monitor.PerformanceMonitorContext;
 import com.lvxin.base.ai.pipeline.PlanConversionPipeline;
 import com.lvxin.base.exception.BusinessException;
 import com.lvxin.base.exception.ErrorCode;
@@ -40,8 +41,21 @@ public class PlanConverterAgent {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "计划内容不能为空");
         }
         
+        PerformanceMonitorContext.recordStage("PlanConverterAgent开始");
+        long startTime = System.currentTimeMillis();
         log.info("开始转换计划 Pipeline，长度: {}", markdownPlan.length());
-        return pipeline.execute(markdownPlan);
+        
+        try {
+            String result = pipeline.execute(markdownPlan);
+            long duration = System.currentTimeMillis() - startTime;
+            PerformanceMonitorContext.recordDuration("PlanConverterAgent总耗时", duration);
+            PerformanceMonitorContext.recordStage("PlanConverterAgent完成");
+            return result;
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            PerformanceMonitorContext.recordDuration("PlanConverterAgent总耗时(失败)", duration);
+            throw e;
+        }
     }
     
     /**

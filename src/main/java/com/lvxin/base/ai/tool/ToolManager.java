@@ -53,13 +53,17 @@ public class ToolManager {
             return "{\"error\":\"工具不存在: " + toolName + "\"}";
         }
         
+        long startTime = System.currentTimeMillis();
         try {
             log.info("执行工具: {}, params: {}", toolName, params);
             String result = tool.execute(params);
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("工具执行完成: {}, 耗时: {}ms", toolName, duration);
             log.debug("工具执行结果: {}", result);
             return result;
         } catch (Exception e) {
-            log.error("工具执行失败: {}", toolName, e);
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("工具执行失败: {}, 耗时: {}ms", toolName, duration, e);
             return "{\"error\":\"工具执行失败: " + e.getMessage() + "\"}";
         }
     }
