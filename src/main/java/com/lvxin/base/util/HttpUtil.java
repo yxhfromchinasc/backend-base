@@ -209,9 +209,26 @@ public class HttpUtil {
                 sleepWithInterrupt(DEFAULT_RETRY_DELAY_MS * attempt);
 
             } catch (IOException e) {
-                log.warn("IO异常，尝试次数: {}/{}, 错误: {}", attempt, actualMaxRetries, e.getMessage());
+                // SSL握手异常通常是重试过程中的正常情况，使用DEBUG级别
+                boolean isSSLException = e.getMessage() != null && 
+                    (e.getMessage().contains("SSL") || 
+                     e.getMessage().contains("handshake") ||
+                     e.getMessage().contains("terminated"));
+                
+                if (isSSLException && attempt < actualMaxRetries) {
+                    // SSL握手失败但还有重试机会，使用DEBUG级别
+                    log.debug("SSL握手失败，尝试次数: {}/{}, 将重试: {}", attempt, actualMaxRetries, e.getMessage());
+                } else {
+                    // 其他IO异常或最后一次尝试，使用WARN级别
+                    log.warn("IO异常，尝试次数: {}/{}, 错误: {}", attempt, actualMaxRetries, e.getMessage());
+                }
+                
                 if (attempt == actualMaxRetries) {
-                    log.error("IO异常最终失败，URL: {}", url, e);
+                    if (isSSLException) {
+                        log.warn("SSL握手最终失败，URL: {}, 错误: {}", url, e.getMessage());
+                    } else {
+                        log.error("IO异常最终失败，URL: {}", url, e);
+                    }
                     return null;
                 }
                 sleepWithInterrupt(DEFAULT_RETRY_DELAY_MS * attempt);
@@ -403,5 +420,117 @@ public class HttpUtil {
         }
 
         return post(url, xmlBody, headers, timeoutSeconds);
+    }
+
+    /**
+     * 下载文件（返回字节数组）
+     *
+     * @param url            文件URL
+     * @param headers        请求头
+     * @param timeoutSeconds 超时时间（秒）
+     * @return 文件字节数组，失败返回null
+     */
+    public static byte[] downloadFile(String url, Map<String, String> headers, Integer timeoutSeconds) {
+        int actualTimeout = timeoutSeconds != null ? timeoutSeconds : DEFAULT_TIMEOUT_SECONDS;
+        int actualMaxRetries = DEFAULT_MAX_RETRIES;
+
+        for (int attempt = 1; attempt <= actualMaxRetries; attempt++) {
+            try {
+                log.debug("下载文件，URL: {}, 尝试次数: {}/{}", url, attempt, actualMaxRetries);
+
+                // 创建HttpClient
+                HttpClient client = HttpClient.newBuilder()
+                        .connectTimeout(Duration.ofSeconds(DEFAULT_CONNECT_TIMEOUT_SECONDS))
+                        .build();
+
+                // 构建请求
+                HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .timeout(Duration.ofSeconds(actualTimeout))
+                        .GET();
+
+                // 添加自定义请求头
+                if (headers != null && !headers.isEmpty()) {
+                    for (Map.Entry<String, String> entry : headers.entrySet()) {
+                        requestBuilder.header(entry.getKey(), entry.getValue());
+                    }
+                } else {
+                    requestBuilder.header("User-Agent", "HttpUtil/1.0");
+                }
+
+                HttpRequest request = requestBuilder.build();
+
+                // 发送请求
+                HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+                // 检查响应状态码
+                if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                    byte[] data = response.body();
+                    log.debug("文件下载成功，URL: {}, 大小: {} bytes", url, data != null ? data.length : 0);
+                    return data;
+                } else {
+                    log.warn("文件下载失败，状态码: {}, 尝试次数: {}/{}", response.statusCode(), attempt, actualMaxRetries);
+
+                    if (attempt == actualMaxRetries) {
+                        log.error("文件下载最终失败，状态码: {}, URL: {}", response.statusCode(), url);
+                        return null;
+                    }
+
+                    // 等待后重试
+                    sleepWithInterrupt(DEFAULT_RETRY_DELAY_MS * attempt);
+                }
+
+            } catch (java.net.ConnectException e) {
+                log.warn("网络连接失败，尝试次数: {}/{}, 错误: {}", attempt, actualMaxRetries, e.getMessage());
+                if (attempt == actualMaxRetries) {
+                    log.error("网络连接最终失败，URL: {}", url, e);
+                    return null;
+                }
+                sleepWithInterrupt(DEFAULT_RETRY_DELAY_MS * attempt);
+
+            } catch (java.net.http.HttpTimeoutException e) {
+                log.warn("文件下载超时，尝试次数: {}/{}, 错误: {}", attempt, actualMaxRetries, e.getMessage());
+                if (attempt == actualMaxRetries) {
+                    log.error("文件下载最终超时，URL: {}", url, e);
+                    return null;
+                }
+                sleepWithInterrupt(DEFAULT_RETRY_DELAY_MS * attempt);
+
+            } catch (IOException e) {
+                boolean isSSLException = e.getMessage() != null &&
+                    (e.getMessage().contains("SSL") ||
+                     e.getMessage().contains("handshake") ||
+                     e.getMessage().contains("terminated"));
+
+                if (isSSLException && attempt < actualMaxRetries) {
+                    log.debug("SSL握手失败，尝试次数: {}/{}, 将重试: {}", attempt, actualMaxRetries, e.getMessage());
+                } else {
+                    log.warn("IO异常，尝试次数: {}/{}, 错误: {}", attempt, actualMaxRetries, e.getMessage());
+                }
+
+                if (attempt == actualMaxRetries) {
+                    if (isSSLException) {
+                        log.warn("SSL握手最终失败，URL: {}, 错误: {}", url, e.getMessage());
+                    } else {
+                        log.error("IO异常最终失败，URL: {}", url, e);
+                    }
+                    return null;
+                }
+                sleepWithInterrupt(DEFAULT_RETRY_DELAY_MS * attempt);
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("文件下载被中断，URL: {}", url, e);
+                return null;
+            } catch (Exception e) {
+                log.error("文件下载异常，URL: {}", url, e);
+                if (attempt == actualMaxRetries) {
+                    return null;
+                }
+                sleepWithInterrupt(DEFAULT_RETRY_DELAY_MS * attempt);
+            }
+        }
+
+        return null;
     }
 }

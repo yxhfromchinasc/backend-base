@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 计划表详情响应
@@ -31,9 +32,16 @@ public class ItineraryDetailResp {
     private String title;
 
     /**
-     * 封面图片URL
+     * 封面图片URL（已废弃，保留用于兼容）
+     * @deprecated 使用 coverImageUrls 代替
      */
+    @Deprecated
     private String coverImageUrl;
+
+    /**
+     * 封面图片URL列表
+     */
+    private List<String> coverImageUrls;
 
     /**
      * 计划表JSON数据

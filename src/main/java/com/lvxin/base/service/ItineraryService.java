@@ -18,12 +18,26 @@ public interface ItineraryService {
      * @param userId 用户ID
      * @param itineraryKey 计划表唯一标识（Key），新增时为null，更新时必须提供
      * @param title 计划表标题
-     * @param coverImageUrl 封面图片URL（可选）
+     * @param coverImageUrl 封面图片URL（可选，已废弃）
+     * @param coverImageUrls 封面图片URL列表（可选）
      * @param jsonData 计划表JSON数据
      * @param currentVersion 当前版本号（用于并发控制），新增时不需要，更新时必须提供
      * @return 计划表业务对象
      */
-    ItineraryBO upsertItinerary(Long userId, String itineraryKey, String title, String coverImageUrl, String jsonData, Integer currentVersion);
+    ItineraryBO upsertItinerary(Long userId, String itineraryKey, String title, String coverImageUrl, List<String> coverImageUrls, String jsonData, Integer currentVersion);
+
+    /**
+     * 创建或更新计划表（Upsert）- 兼容旧方法
+     * @deprecated 使用新方法，支持多封面图片
+     */
+    @Deprecated
+    default ItineraryBO upsertItinerary(Long userId, String itineraryKey, String title, String coverImageUrl, String jsonData, Integer currentVersion) {
+        List<String> coverImageUrls = null;
+        if (coverImageUrl != null && !coverImageUrl.isEmpty()) {
+            coverImageUrls = java.util.Collections.singletonList(coverImageUrl);
+        }
+        return upsertItinerary(userId, itineraryKey, title, coverImageUrl, coverImageUrls, jsonData, currentVersion);
+    }
 
     /**
      * 根据计划表唯一标识（Key）获取计划表
@@ -74,10 +88,24 @@ public interface ItineraryService {
      * @param userId 用户ID
      * @param title 计划表标题
      * @param originalPlan 原始计划内容（用户输入的文本或AI对话的markdown）
-     * @param coverImageUrl 封面图片URL（可选）
+     * @param coverImageUrl 封面图片URL（可选，已废弃）
+     * @param coverImageUrls 封面图片URL列表（可选）
      * @return 计划表业务对象
      */
-    ItineraryBO createGeneratingItinerary(Long userId, String title, String originalPlan, String coverImageUrl);
+    ItineraryBO createGeneratingItinerary(Long userId, String title, String originalPlan, String coverImageUrl, List<String> coverImageUrls);
+
+    /**
+     * 创建生成中的计划表（用于异步生成）- 兼容旧方法
+     * @deprecated 使用新方法，支持多封面图片
+     */
+    @Deprecated
+    default ItineraryBO createGeneratingItinerary(Long userId, String title, String originalPlan, String coverImageUrl) {
+        List<String> coverImageUrls = null;
+        if (coverImageUrl != null && !coverImageUrl.isEmpty()) {
+            coverImageUrls = java.util.Collections.singletonList(coverImageUrl);
+        }
+        return createGeneratingItinerary(userId, title, originalPlan, coverImageUrl, coverImageUrls);
+    }
 
     /**
      * 更新计划表状态和JSON数据（用于异步生成完成后更新）

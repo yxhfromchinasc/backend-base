@@ -5,11 +5,15 @@ import com.lvxin.base.ai.event.ItineraryGenerationEvent;
 import com.lvxin.base.ai.model.AIConversation;
 import com.lvxin.base.ai.model.ConversationStage;
 import com.lvxin.base.service.ItineraryService;
+import com.lvxin.base.service.XiaohongshuCrawlerService;
 import com.lvxin.base.service.bo.ItineraryBO;
+import com.lvxin.base.util.ImageUrlExtractor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 /**
  * AI规划服务
@@ -25,16 +29,22 @@ public class AIPlanningService {
     private final TravelPlanningAgent planningAgent;
     private final ItineraryService itineraryService;
     private final ApplicationEventPublisher eventPublisher;
+    private final XiaohongshuCrawlerService xiaohongshuCrawlerService;
+    private final ImageUrlExtractor imageUrlExtractor;
 
     public AIPlanningService(
             AIConversationService conversationService,
             TravelPlanningAgent planningAgent,
             ItineraryService itineraryService,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            XiaohongshuCrawlerService xiaohongshuCrawlerService,
+            ImageUrlExtractor imageUrlExtractor) {
         this.conversationService = conversationService;
         this.planningAgent = planningAgent;
         this.itineraryService = itineraryService;
         this.eventPublisher = eventPublisher;
+        this.xiaohongshuCrawlerService = xiaohongshuCrawlerService;
+        this.imageUrlExtractor = imageUrlExtractor;
     }
 
     /**
@@ -80,7 +90,7 @@ public class AIPlanningService {
         // 创建"生成中"的计划
         String title = extractTitle(conversation.getPlanMarkdown());
         ItineraryBO itineraryBO = itineraryService.createGeneratingItinerary(
-                userId, title, conversation.getPlanMarkdown(), null
+                userId, title, conversation.getPlanMarkdown(), null, null
         );
 
         log.info("计划记录已创建，发布异步生成事件: {}", itineraryBO.getItineraryKey());
@@ -107,18 +117,82 @@ public class AIPlanningService {
             );
         }
 
+        // 从文本中提取图片URL
+        List<String> imageUrls = imageUrlExtractor.extractImageUrlsFromText(text);
+        log.info("从文本中提取到 {} 张图片", imageUrls.size());
+
         String title = extractTitle(text);
         ItineraryBO itineraryBO = itineraryService.createGeneratingItinerary(
-                userId, title, text, null
+                userId, title, text, null, imageUrls.isEmpty() ? null : imageUrls
         );
         
-        log.info("文本计划记录已创建，发布异步生成事件: {}", itineraryBO.getItineraryKey());
+        log.info("文本计划记录已创建，发布异步生成事件: {}, 封面图片数量: {}", 
+                itineraryBO.getItineraryKey(), imageUrls.size());
 
         // 发布事件
         eventPublisher.publishEvent(new ItineraryGenerationEvent(
                 this, 
                 itineraryBO.getItineraryKey(), 
                 text, 
+                userId
+        ));
+
+        return itineraryBO;
+    }
+
+    /**
+     * 小红书链接转计划表
+     * 先获取小红书内容，然后转换为计划表
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public ItineraryBO convertXiaohongshuToItinerary(String url, Long userId) {
+        if (url == null || url.trim().isEmpty()) {
+            throw new com.lvxin.base.exception.BusinessException(
+                    com.lvxin.base.exception.ErrorCode.BAD_REQUEST, "小红书链接不能为空"
+            );
+        }
+
+        // 获取内容（crawlContent方法内部会处理链接提取和验证）
+        XiaohongshuCrawlerService.CrawlResult crawlResult = xiaohongshuCrawlerService.crawlContent(url);
+        
+        if (!crawlResult.isSuccess()) {
+            throw new com.lvxin.base.exception.BusinessException(
+                    com.lvxin.base.exception.ErrorCode.BAD_REQUEST, 
+                    "获取失败：" + crawlResult.getErrorMessage()
+            );
+        }
+
+        String crawledText = crawlResult.getContent();
+        if (crawledText == null || crawledText.trim().isEmpty()) {
+            throw new com.lvxin.base.exception.BusinessException(
+                    com.lvxin.base.exception.ErrorCode.BAD_REQUEST, 
+                    "未能从小红书链接中提取到有效内容"
+            );
+        }
+
+        // 获取图片列表
+        List<String> images = crawlResult.getImages();
+        log.info("小红书内容获取成功，文本长度: {}, 图片数量: {}, 开始转换为计划表", 
+                crawledText.length(), images.size());
+
+        // 使用获取的文本转换为计划表（复用文本转计划表的逻辑）
+        String title = extractTitle(crawledText);
+        // 如果标题是默认的，尝试使用"小红书攻略"作为前缀
+        if ("AI生成的旅行计划".equals(title)) {
+            title = "小红书攻略";
+        }
+        
+        ItineraryBO itineraryBO = itineraryService.createGeneratingItinerary(
+                userId, title, crawledText, null, images.isEmpty() ? null : images
+        );
+        
+        log.info("小红书计划记录已创建，发布异步生成事件: {}", itineraryBO.getItineraryKey());
+
+        // 发布事件
+        eventPublisher.publishEvent(new ItineraryGenerationEvent(
+                this, 
+                itineraryBO.getItineraryKey(), 
+                crawledText, 
                 userId
         ));
 

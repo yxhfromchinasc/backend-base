@@ -42,4 +42,13 @@ public interface MediaService {
      * @return 图片是否存在
      */
     boolean imageExists(String imageUrl);
+
+    /**
+     * 从URL下载图片并上传到自己的云存储
+     *
+     * @param imageUrl 图片URL
+     * @param category 图片分类
+     * @return 上传后的图片URL，失败返回null
+     */
+    String downloadAndUploadImage(String imageUrl, String category);
 }

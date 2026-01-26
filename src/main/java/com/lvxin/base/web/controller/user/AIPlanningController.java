@@ -7,6 +7,7 @@ import com.lvxin.base.util.CurrentUserUtil;
 import com.lvxin.base.web.annotation.AuthCheck;
 import com.lvxin.base.web.req.AIChatReq;
 import com.lvxin.base.web.req.AIConvertReq;
+import com.lvxin.base.web.req.XiaohongshuToItineraryReq;
 import com.lvxin.base.web.resp.AIChatResp;
 import com.lvxin.base.web.resp.ItineraryDetailResp;
 import io.swagger.v3.oas.annotations.Operation;
@@ -78,20 +79,7 @@ public class AIPlanningController {
         );
 
         // 转换为响应对象
-        ItineraryDetailResp resp = new ItineraryDetailResp();
-        resp.setItineraryKey(itineraryBO.getItineraryKey());
-        resp.setUserId(itineraryBO.getUserId());
-        resp.setTitle(itineraryBO.getTitle());
-        resp.setCoverImageUrl(itineraryBO.getCoverImageUrl());
-        resp.setJsonData(itineraryBO.getJsonData());
-        resp.setVersion(itineraryBO.getVersion());
-        resp.setComponentVersion(itineraryBO.getComponentVersion());
-        resp.setIsCurrentVersion(itineraryBO.getIsCurrentVersion());
-        resp.setStatus(itineraryBO.getStatus() != null ? itineraryBO.getStatus() : "GENERATING");
-        resp.setErrorMessage(itineraryBO.getErrorMessage());
-        resp.setCreatedAt(itineraryBO.getCreatedAt());
-        resp.setUpdatedAt(itineraryBO.getUpdatedAt());
-
+        ItineraryDetailResp resp = toItineraryDetailResp(itineraryBO);
         return Result.success(resp);
     }
 
@@ -112,20 +100,59 @@ public class AIPlanningController {
         );
 
         // 转换为响应对象
-        ItineraryDetailResp resp = new ItineraryDetailResp();
-        resp.setItineraryKey(itineraryBO.getItineraryKey());
-        resp.setUserId(itineraryBO.getUserId());
-        resp.setTitle(itineraryBO.getTitle());
-        resp.setCoverImageUrl(itineraryBO.getCoverImageUrl());
-        resp.setJsonData(itineraryBO.getJsonData());
-        resp.setVersion(itineraryBO.getVersion());
-        resp.setComponentVersion(itineraryBO.getComponentVersion());
-        resp.setIsCurrentVersion(itineraryBO.getIsCurrentVersion());
-        resp.setStatus(itineraryBO.getStatus() != null ? itineraryBO.getStatus() : "GENERATING");
-        resp.setErrorMessage(itineraryBO.getErrorMessage());
-        resp.setCreatedAt(itineraryBO.getCreatedAt());
-        resp.setUpdatedAt(itineraryBO.getUpdatedAt());
-
+        ItineraryDetailResp resp = toItineraryDetailResp(itineraryBO);
         return Result.success(resp);
+    }
+
+    /**
+     * 小红书链接转计划表
+     * 获取小红书链接中的旅游攻略，转换为系统计划表并保存
+     */
+    @Operation(summary = "小红书链接转计划表", description = "获取小红书链接中的旅游攻略，转换为计划表并保存")
+    @PostMapping("/xiaohongshu-to-itinerary")
+    @AuthCheck
+    public Result<ItineraryDetailResp> xiaohongshuToItinerary(@Valid @RequestBody XiaohongshuToItineraryReq request) {
+        Long userId = CurrentUserUtil.getCurrentUserId();
+        log.info("小红书链接转计划表，userId: {}, url: {}", userId, request.getUrl());
+
+        ItineraryBO itineraryBO = aiPlanningService.convertXiaohongshuToItinerary(
+                request.getUrl(),
+                userId
+        );
+
+        // 转换为响应对象
+        ItineraryDetailResp resp = toItineraryDetailResp(itineraryBO);
+        return Result.success(resp);
+    }
+
+    /**
+     * BO转响应对象（统一处理封面图片）
+     */
+    private ItineraryDetailResp toItineraryDetailResp(ItineraryBO bo) {
+        ItineraryDetailResp resp = new ItineraryDetailResp();
+        resp.setItineraryKey(bo.getItineraryKey());
+        resp.setUserId(bo.getUserId());
+        resp.setTitle(bo.getTitle());
+        resp.setCoverImageUrls(bo.getCoverImageUrls());
+        // 向后兼容：如果coverImageUrls为空，尝试从coverImageUrl转换
+        if ((resp.getCoverImageUrls() == null || resp.getCoverImageUrls().isEmpty()) 
+            && bo.getCoverImageUrl() != null && !bo.getCoverImageUrl().isEmpty()) {
+            resp.setCoverImageUrls(java.util.Collections.singletonList(bo.getCoverImageUrl()));
+        }
+        // 向后兼容：设置单个coverImageUrl（取第一张）
+        if (resp.getCoverImageUrls() != null && !resp.getCoverImageUrls().isEmpty()) {
+            resp.setCoverImageUrl(resp.getCoverImageUrls().get(0));
+        } else {
+            resp.setCoverImageUrl(bo.getCoverImageUrl());
+        }
+        resp.setJsonData(bo.getJsonData());
+        resp.setVersion(bo.getVersion());
+        resp.setComponentVersion(bo.getComponentVersion());
+        resp.setIsCurrentVersion(bo.getIsCurrentVersion());
+        resp.setStatus(bo.getStatus() != null ? bo.getStatus() : "GENERATING");
+        resp.setErrorMessage(bo.getErrorMessage());
+        resp.setCreatedAt(bo.getCreatedAt());
+        resp.setUpdatedAt(bo.getUpdatedAt());
+        return resp;
     }
 }

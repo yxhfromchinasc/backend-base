@@ -54,13 +54,21 @@ public class ItineraryDO {
     private String title;
 
     /**
-     * 封面图片URL
-     * 作用：计划表的封面图片地址
-     * 必填：否
-     * 格式：完整的URL地址
+     * 封面图片URL（已废弃，保留用于兼容）
+     * @deprecated 使用 coverImageUrls 代替
      */
+    @Deprecated
     @TableField("cover_image_url")
     private String coverImageUrl;
+
+    /**
+     * 封面图片URL数组（JSON格式）
+     * 作用：计划表的封面图片地址列表，支持多张图片轮播
+     * 必填：否
+     * 格式：JSON数组字符串，如：["url1", "url2"]
+     */
+    @TableField("cover_image_urls")
+    private String coverImageUrls;
 
     /**
      * 计划表JSON数据

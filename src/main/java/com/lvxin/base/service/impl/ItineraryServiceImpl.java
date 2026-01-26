@@ -9,6 +9,7 @@ import com.lvxin.base.repository.ItineraryRepository;
 import com.lvxin.base.repository.entity.ItineraryDO;
 import com.lvxin.base.service.ItineraryService;
 import com.lvxin.base.service.bo.ItineraryBO;
+import com.lvxin.base.util.JsonUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -32,7 +35,7 @@ public class ItineraryServiceImpl implements ItineraryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ItineraryBO upsertItinerary(Long userId, String itineraryKey, String title, String coverImageUrl, String jsonData, Integer currentVersion) {
+    public ItineraryBO upsertItinerary(Long userId, String itineraryKey, String title, String coverImageUrl, List<String> coverImageUrls, String jsonData, Integer currentVersion) {
         // 参数校验
         if (userId == null) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "用户ID不能为空");
@@ -59,7 +62,15 @@ public class ItineraryServiceImpl implements ItineraryService {
             itineraryDO.setItineraryKey(newItineraryKey);
             itineraryDO.setUserId(userId);
             itineraryDO.setTitle(title);
-            itineraryDO.setCoverImageUrl(coverImageUrl);
+            // 处理封面图片：优先使用coverImageUrls，如果没有则使用coverImageUrl
+            List<String> finalCoverImageUrls = normalizeCoverImageUrls(coverImageUrls, coverImageUrl);
+            itineraryDO.setCoverImageUrls(coverImageUrlsToJson(finalCoverImageUrls));
+            // 向后兼容：如果只有单个图片，也设置coverImageUrl
+            if (finalCoverImageUrls != null && !finalCoverImageUrls.isEmpty() && finalCoverImageUrls.size() == 1) {
+                itineraryDO.setCoverImageUrl(finalCoverImageUrls.get(0));
+            } else if (coverImageUrl != null) {
+                itineraryDO.setCoverImageUrl(coverImageUrl);
+            }
             itineraryDO.setJsonData(jsonData);
             itineraryDO.setVersion(1); // 新增时版本号为1
             itineraryDO.setComponentVersion("v1"); // 默认组件版本为v1
@@ -106,7 +117,15 @@ public class ItineraryServiceImpl implements ItineraryService {
             newVersionDO.setItineraryKey(itineraryKey); // 使用相同的itineraryKey作为key
             newVersionDO.setUserId(userId);
             newVersionDO.setTitle(title);
-            newVersionDO.setCoverImageUrl(coverImageUrl);
+            // 处理封面图片：优先使用coverImageUrls，如果没有则使用coverImageUrl
+            List<String> finalCoverImageUrls = normalizeCoverImageUrls(coverImageUrls, coverImageUrl);
+            newVersionDO.setCoverImageUrls(coverImageUrlsToJson(finalCoverImageUrls));
+            // 向后兼容：如果只有单个图片，也设置coverImageUrl
+            if (finalCoverImageUrls != null && !finalCoverImageUrls.isEmpty() && finalCoverImageUrls.size() == 1) {
+                newVersionDO.setCoverImageUrl(finalCoverImageUrls.get(0));
+            } else if (coverImageUrl != null) {
+                newVersionDO.setCoverImageUrl(coverImageUrl);
+            }
             newVersionDO.setJsonData(jsonData);
             newVersionDO.setVersion(existingItinerary.getVersion() + 1); // 版本号递增
             newVersionDO.setComponentVersion(existingItinerary.getComponentVersion());
@@ -231,7 +250,7 @@ public class ItineraryServiceImpl implements ItineraryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ItineraryBO createGeneratingItinerary(Long userId, String title, String originalPlan, String coverImageUrl) {
+    public ItineraryBO createGeneratingItinerary(Long userId, String title, String originalPlan, String coverImageUrl, List<String> coverImageUrls) {
         log.info("创建生成中的计划表: userId={}, title={}", userId, title);
 
         if (userId == null) {
@@ -249,7 +268,15 @@ public class ItineraryServiceImpl implements ItineraryService {
         itineraryDO.setItineraryKey(newItineraryKey);
         itineraryDO.setUserId(userId);
         itineraryDO.setTitle(title);
-        itineraryDO.setCoverImageUrl(coverImageUrl);
+        // 处理封面图片：优先使用coverImageUrls，如果没有则使用coverImageUrl
+        List<String> finalCoverImageUrls = normalizeCoverImageUrls(coverImageUrls, coverImageUrl);
+        itineraryDO.setCoverImageUrls(coverImageUrlsToJson(finalCoverImageUrls));
+        // 向后兼容：如果只有单个图片，也设置coverImageUrl
+        if (finalCoverImageUrls != null && !finalCoverImageUrls.isEmpty() && finalCoverImageUrls.size() == 1) {
+            itineraryDO.setCoverImageUrl(finalCoverImageUrls.get(0));
+        } else if (coverImageUrl != null) {
+            itineraryDO.setCoverImageUrl(coverImageUrl);
+        }
         itineraryDO.setJsonData("{}"); // 生成中时使用空的JSON对象
         itineraryDO.setOriginalPlan(originalPlan);
         itineraryDO.setVersion(1);
@@ -315,6 +342,53 @@ public class ItineraryServiceImpl implements ItineraryService {
         }
         ItineraryBO bo = new ItineraryBO();
         BeanUtils.copyProperties(itineraryDO, bo);
+        
+        // 处理封面图片URLs：从JSON字符串转换为List
+        bo.setCoverImageUrls(jsonToCoverImageUrls(itineraryDO.getCoverImageUrls(), itineraryDO.getCoverImageUrl()));
+        
         return bo;
+    }
+
+    /**
+     * 规范化封面图片URLs
+     * 优先使用coverImageUrls，如果没有则使用coverImageUrl转换为列表
+     */
+    private List<String> normalizeCoverImageUrls(List<String> coverImageUrls, String coverImageUrl) {
+        if (coverImageUrls != null && !coverImageUrls.isEmpty()) {
+            return coverImageUrls;
+        }
+        if (coverImageUrl != null && !coverImageUrl.isEmpty()) {
+            return Collections.singletonList(coverImageUrl);
+        }
+        return null;
+    }
+
+    /**
+     * 将封面图片URL列表转换为JSON字符串
+     */
+    private String coverImageUrlsToJson(List<String> coverImageUrls) {
+        if (coverImageUrls == null || coverImageUrls.isEmpty()) {
+            return null;
+        }
+        return JsonUtil.toJson(coverImageUrls);
+    }
+
+    /**
+     * 将JSON字符串转换为封面图片URL列表
+     * 如果JSON为空，尝试从coverImageUrl转换（向后兼容）
+     */
+    private List<String> jsonToCoverImageUrls(String coverImageUrlsJson, String coverImageUrl) {
+        if (coverImageUrlsJson != null && !coverImageUrlsJson.isEmpty()) {
+            try {
+                return JsonUtil.toList(coverImageUrlsJson, String.class);
+            } catch (Exception e) {
+                log.warn("解析封面图片URLs JSON失败: {}", coverImageUrlsJson, e);
+            }
+        }
+        // 向后兼容：如果JSON为空，尝试从单个coverImageUrl转换
+        if (coverImageUrl != null && !coverImageUrl.isEmpty()) {
+            return Collections.singletonList(coverImageUrl);
+        }
+        return null;
     }
 }

@@ -4,6 +4,7 @@ import com.lvxin.base.service.MediaService;
 import com.lvxin.base.service.ObjectStorageService;
 import com.lvxin.base.service.SystemConfigService;
 import com.lvxin.base.util.FileValidationUtil;
+import com.lvxin.base.util.HttpUtil;
 import com.lvxin.base.web.req.ImageUploadReq;
 import com.lvxin.base.web.resp.ImageUploadResp;
 import jakarta.annotation.Resource;
@@ -11,8 +12,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -228,5 +235,170 @@ public class MediaServiceImpl implements MediaService {
         }
         log.debug("使用默认最大文件大小: {}MB ({} bytes)", DEFAULT_MAX_FILE_SIZE / 1024 / 1024, DEFAULT_MAX_FILE_SIZE);
         return DEFAULT_MAX_FILE_SIZE;
+    }
+
+    @Override
+    public String downloadAndUploadImage(String imageUrl, String category) {
+        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+            log.warn("图片URL为空，无法下载上传");
+            return null;
+        }
+
+        try {
+            log.info("开始从URL下载图片并上传: {}", imageUrl);
+
+            // 1. 下载图片数据
+            Map<String, String> headers = new HashMap<>();
+            headers.put("User-Agent", "Mozilla/5.0");
+            headers.put("Referer", "https://www.xiaohongshu.com/");
+            
+            byte[] imageData = HttpUtil.downloadFile(imageUrl, headers, 30);
+            if (imageData == null || imageData.length == 0) {
+                log.warn("下载图片失败，URL: {}", imageUrl);
+                return null;
+            }
+
+            log.debug("图片下载成功，大小: {} bytes", imageData.length);
+
+            // 2. 确定文件扩展名和MIME类型
+            String extension = getImageExtensionFromUrl(imageUrl);
+            String mimeType = getMimeTypeFromExtension(extension);
+            String filename = UUID.randomUUID().toString().replace("-", "") + extension;
+
+            // 3. 创建MultipartFile对象
+            MultipartFile multipartFile = new ByteArrayMultipartFile(
+                    imageData,
+                    filename,
+                    mimeType
+            );
+
+            // 4. 上传到自己的云存储
+            String uploadedUrl = uploadImage(multipartFile, category);
+            
+            if (uploadedUrl != null) {
+                log.info("图片下载并上传成功，原URL: {}, 新URL: {}", imageUrl, uploadedUrl);
+            } else {
+                log.warn("图片上传失败，原URL: {}", imageUrl);
+            }
+
+            return uploadedUrl;
+        } catch (Exception e) {
+            log.error("下载并上传图片失败，URL: {}", imageUrl, e);
+            return null;
+        }
+    }
+
+    /**
+     * 从URL中提取图片扩展名
+     */
+    private String getImageExtensionFromUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return ".jpg"; // 默认扩展名
+        }
+
+        // 移除查询参数和锚点
+        String path = url.split("[?#]")[0];
+        
+        // 检查常见图片扩展名
+        String lowerPath = path.toLowerCase();
+        if (lowerPath.endsWith(".jpg") || lowerPath.endsWith(".jpeg")) {
+            return ".jpg";
+        } else if (lowerPath.endsWith(".png")) {
+            return ".png";
+        } else if (lowerPath.endsWith(".gif")) {
+            return ".gif";
+        } else if (lowerPath.endsWith(".webp")) {
+            return ".webp";
+        } else if (lowerPath.endsWith(".bmp")) {
+            return ".bmp";
+        } else if (lowerPath.endsWith(".svg")) {
+            return ".svg";
+        }
+
+        // 默认返回.jpg
+        return ".jpg";
+    }
+
+    /**
+     * 根据扩展名获取MIME类型
+     */
+    private String getMimeTypeFromExtension(String extension) {
+        if (extension == null || extension.isEmpty()) {
+            return "image/jpeg";
+        }
+
+        String lowerExt = extension.toLowerCase();
+        switch (lowerExt) {
+            case ".jpg":
+            case ".jpeg":
+                return "image/jpeg";
+            case ".png":
+                return "image/png";
+            case ".gif":
+                return "image/gif";
+            case ".webp":
+                return "image/webp";
+            case ".bmp":
+                return "image/bmp";
+            case ".svg":
+                return "image/svg+xml";
+            default:
+                return "image/jpeg";
+        }
+    }
+
+    /**
+     * 简单的MultipartFile实现，用于从字节数组创建MultipartFile
+     */
+    private static class ByteArrayMultipartFile implements MultipartFile {
+        private final byte[] content;
+        private final String name;
+        private final String contentType;
+
+        public ByteArrayMultipartFile(byte[] content, String name, String contentType) {
+            this.content = content;
+            this.name = name;
+            this.contentType = contentType;
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public String getOriginalFilename() {
+            return name;
+        }
+
+        @Override
+        public String getContentType() {
+            return contentType;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return content == null || content.length == 0;
+        }
+
+        @Override
+        public long getSize() {
+            return content != null ? content.length : 0;
+        }
+
+        @Override
+        public byte[] getBytes() throws IOException {
+            return content != null ? content : new byte[0];
+        }
+
+        @Override
+        public InputStream getInputStream() throws IOException {
+            return new ByteArrayInputStream(content != null ? content : new byte[0]);
+        }
+
+        @Override
+        public void transferTo(File dest) throws IOException, IllegalStateException {
+            throw new UnsupportedOperationException("transferTo not supported");
+        }
     }
 }

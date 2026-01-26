@@ -49,6 +49,7 @@ public class ItineraryController {
                     req.getItineraryKey(),
                     req.getTitle(),
                     req.getCoverImageUrl(),
+                    req.getCoverImageUrls(),
                     req.getJsonData(),
                     req.getCurrentVersion()
             );
@@ -177,6 +178,13 @@ public class ItineraryController {
     private ItineraryDetailResp toDetailResp(ItineraryBO bo) {
         ItineraryDetailResp resp = new ItineraryDetailResp();
         BeanUtils.copyProperties(bo, resp);
+        // 设置封面图片URLs
+        resp.setCoverImageUrls(bo.getCoverImageUrls());
+        // 向后兼容：如果coverImageUrls为空，尝试从coverImageUrl转换
+        if ((resp.getCoverImageUrls() == null || resp.getCoverImageUrls().isEmpty()) 
+            && bo.getCoverImageUrl() != null && !bo.getCoverImageUrl().isEmpty()) {
+            resp.setCoverImageUrls(java.util.Collections.singletonList(bo.getCoverImageUrl()));
+        }
         return resp;
     }
 
@@ -187,7 +195,19 @@ public class ItineraryController {
         ItinerarySummaryResp resp = new ItinerarySummaryResp();
         resp.setItineraryKey(bo.getItineraryKey());
         resp.setTitle(bo.getTitle());
-        resp.setCoverImageUrl(bo.getCoverImageUrl());
+        // 设置封面图片URLs
+        resp.setCoverImageUrls(bo.getCoverImageUrls());
+        // 向后兼容：如果coverImageUrls为空，尝试从coverImageUrl转换
+        if ((resp.getCoverImageUrls() == null || resp.getCoverImageUrls().isEmpty()) 
+            && bo.getCoverImageUrl() != null && !bo.getCoverImageUrl().isEmpty()) {
+            resp.setCoverImageUrls(java.util.Collections.singletonList(bo.getCoverImageUrl()));
+        }
+        // 向后兼容：设置单个coverImageUrl（取第一张）
+        if (resp.getCoverImageUrls() != null && !resp.getCoverImageUrls().isEmpty()) {
+            resp.setCoverImageUrl(resp.getCoverImageUrls().get(0));
+        } else {
+            resp.setCoverImageUrl(bo.getCoverImageUrl());
+        }
         resp.setVersion(bo.getVersion());
         resp.setComponentVersion(bo.getComponentVersion());
         resp.setIsCurrentVersion(bo.getIsCurrentVersion());

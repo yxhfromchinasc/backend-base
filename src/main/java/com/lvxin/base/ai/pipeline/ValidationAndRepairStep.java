@@ -21,7 +21,7 @@ public class ValidationAndRepairStep implements ConversionPipelineStep {
 
     private final JsonValidatorAgent validatorAgent;
     private final AIClient aiClient;
-    
+
     private static final String REPAIR_PROMPT_TEMPLATE = """
             你是一个JSON修复专家。以下JSON存在格式错误，请修复它。
             
@@ -42,27 +42,25 @@ public class ValidationAndRepairStep implements ConversionPipelineStep {
     @Override
     public String process(String currentJson, String originalMarkdown) {
         log.info("[Pipeline] Step 2: Validating and Repairing...");
-        
+
         JsonValidatorAgent.ValidationResult result = validatorAgent.validate(currentJson);
         if (result.isValid()) {
             log.info("JSON验证通过，无需修复");
             return currentJson;
         }
-        
+
         log.warn("JSON验证失败: {}，尝试AI修复...", result.getErrorMessage());
-        
+
         try {
             String prompt = String.format(REPAIR_PROMPT_TEMPLATE, currentJson, result.getErrorMessage());
             String repaired = aiClient.chat(prompt, Collections.emptyList());
             String extracted = extractJson(repaired);
-            
+
             // 二次验证
             if (validatorAgent.validate(extracted).isValid()) {
                 log.info("AI修复成功");
                 return extracted;
-            }
-            
-else {
+            } else {
                 throw new RuntimeException("修复后仍然无效");
             }
         } catch (Exception e) {
@@ -75,7 +73,7 @@ else {
     public int getOrder() {
         return 2;
     }
-    
+
     private String extractJson(String response) {
         // ... (复用提取逻辑，实际项目中应放入Util类)
         if (response == null) return null;
