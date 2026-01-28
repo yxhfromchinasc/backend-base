@@ -43,4 +43,18 @@ public interface AIClient {
     default String chat(List<ChatMessage> messages) {
         return chat(null, messages);
     }
+
+    /**
+     * 发送聊天消息并要求结构化输出
+     *
+     * @param systemPrompt 系统提示词
+     * @param messages     对话历史
+     * @param schemaName   Schema名称
+     * @param schemaDefinition JSON Schema定义（JSONObject）
+     * @return AI回复（JSON字符串）
+     */
+    default String chatWithStructure(String systemPrompt, List<ChatMessage> messages, String schemaName, Object schemaDefinition) {
+        // 默认实现降级为普通对话
+        return chat(systemPrompt, messages);
+    }
 }
