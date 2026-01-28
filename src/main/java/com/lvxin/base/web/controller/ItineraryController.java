@@ -48,7 +48,6 @@ public class ItineraryController {
                     userId,
                     req.getItineraryKey(),
                     req.getTitle(),
-                    req.getCoverImageUrl(),
                     req.getCoverImageUrls(),
                     req.getJsonData(),
                     req.getCurrentVersion()
@@ -180,11 +179,12 @@ public class ItineraryController {
         BeanUtils.copyProperties(bo, resp);
         // 设置封面图片URLs
         resp.setCoverImageUrls(bo.getCoverImageUrls());
-        // 向后兼容：如果coverImageUrls为空，尝试从coverImageUrl转换
-        if ((resp.getCoverImageUrls() == null || resp.getCoverImageUrls().isEmpty()) 
-            && bo.getCoverImageUrl() != null && !bo.getCoverImageUrl().isEmpty()) {
-            resp.setCoverImageUrls(java.util.Collections.singletonList(bo.getCoverImageUrl()));
+        
+        // 向后兼容：设置单个coverImageUrl（取第一张）
+        if (resp.getCoverImageUrls() != null && !resp.getCoverImageUrls().isEmpty()) {
+            resp.setCoverImageUrl(resp.getCoverImageUrls().get(0));
         }
+        
         return resp;
     }
 
@@ -197,17 +197,12 @@ public class ItineraryController {
         resp.setTitle(bo.getTitle());
         // 设置封面图片URLs
         resp.setCoverImageUrls(bo.getCoverImageUrls());
-        // 向后兼容：如果coverImageUrls为空，尝试从coverImageUrl转换
-        if ((resp.getCoverImageUrls() == null || resp.getCoverImageUrls().isEmpty()) 
-            && bo.getCoverImageUrl() != null && !bo.getCoverImageUrl().isEmpty()) {
-            resp.setCoverImageUrls(java.util.Collections.singletonList(bo.getCoverImageUrl()));
-        }
+        
         // 向后兼容：设置单个coverImageUrl（取第一张）
         if (resp.getCoverImageUrls() != null && !resp.getCoverImageUrls().isEmpty()) {
             resp.setCoverImageUrl(resp.getCoverImageUrls().get(0));
-        } else {
-            resp.setCoverImageUrl(bo.getCoverImageUrl());
         }
+        
         resp.setVersion(bo.getVersion());
         resp.setComponentVersion(bo.getComponentVersion());
         resp.setIsCurrentVersion(bo.getIsCurrentVersion());

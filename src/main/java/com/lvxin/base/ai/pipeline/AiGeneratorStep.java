@@ -4,6 +4,7 @@ import com.lvxin.base.ai.client.AIClient;
 import com.lvxin.base.ai.prompt.PlanConverterPrompt;
 import com.lvxin.base.exception.BusinessException;
 import com.lvxin.base.exception.ErrorCode;
+import com.lvxin.base.util.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -40,7 +41,7 @@ public class AiGeneratorStep implements ConversionPipelineStep {
         String systemPrompt = converterPrompt.generateSystemPrompt(originalMarkdown);
         String aiResponse = aiClient.chat(systemPrompt, Collections.emptyList());
         
-        String extracted = extractJson(aiResponse);
+        String extracted = JsonUtil.extractJsonFromMarkdown(aiResponse);
         if (extracted == null || extracted.isEmpty()) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "AI生成结果不包含有效JSON");
         }
@@ -50,15 +51,5 @@ public class AiGeneratorStep implements ConversionPipelineStep {
     @Override
     public int getOrder() {
         return 1;
-    }
-    
-    private String extractJson(String response) {
-        if (response == null) return null;
-        Matcher matcher = JSON_BLOCK_PATTERN.matcher(response);
-        if (matcher.find()) return matcher.group(1).trim();
-        int start = response.indexOf('{');
-        int end = response.lastIndexOf('}');
-        if (start >= 0 && end > start) return response.substring(start, end + 1).trim();
-        return response;
     }
 }

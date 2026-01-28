@@ -2,6 +2,7 @@ package com.lvxin.base.ai.pipeline;
 
 import com.lvxin.base.ai.agent.JsonValidatorAgent;
 import com.lvxin.base.ai.client.AIClient;
+import com.lvxin.base.util.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -54,7 +55,7 @@ public class ValidationAndRepairStep implements ConversionPipelineStep {
         try {
             String prompt = String.format(REPAIR_PROMPT_TEMPLATE, currentJson, result.getErrorMessage());
             String repaired = aiClient.chat(prompt, Collections.emptyList());
-            String extracted = extractJson(repaired);
+            String extracted = JsonUtil.extractJsonFromMarkdown(repaired);
 
             // 二次验证
             if (validatorAgent.validate(extracted).isValid()) {
@@ -72,17 +73,5 @@ public class ValidationAndRepairStep implements ConversionPipelineStep {
     @Override
     public int getOrder() {
         return 2;
-    }
-
-    private String extractJson(String response) {
-        // ... (复用提取逻辑，实际项目中应放入Util类)
-        if (response == null) return null;
-        Pattern p = Pattern.compile("```(?:json)?\\s*([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
-        Matcher m = p.matcher(response);
-        if (m.find()) return m.group(1).trim();
-        int start = response.indexOf('{');
-        int end = response.lastIndexOf('}');
-        if (start >= 0 && end > start) return response.substring(start, end + 1).trim();
-        return response;
     }
 }

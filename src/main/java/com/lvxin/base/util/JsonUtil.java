@@ -61,6 +61,38 @@ public class JsonUtil {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "JSON列表反序列化失败");
         }
     }
+
+    /**
+     * 从包含 Markdown 代码块的文本中提取 JSON 内容
+     * 规则：
+     * 1. 优先提取 ```json ... ``` 或 ``` ... ``` 块中的内容
+     * 2. 如果没有代码块，则提取第一个 { 和最后一个 } 之间的内容
+     * 3. 如果都没有，返回原字符串
+     */
+    public static String extractJsonFromMarkdown(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return text;
+        }
+
+        // 1. 提取代码块
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "```(?:json)?\\s*([\\s\\S]*?)```",
+                java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.MULTILINE
+        );
+        java.util.regex.Matcher matcher = pattern.matcher(text);
+        if (matcher.find()) {
+            return matcher.group(1).trim();
+        }
+
+        // 2. 查找第一个 { 和最后一个 }
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return text.substring(start, end + 1).trim();
+        }
+
+        return text.trim();
+    }
 }
 
 

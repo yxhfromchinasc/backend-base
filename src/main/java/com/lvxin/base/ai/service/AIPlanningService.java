@@ -90,7 +90,7 @@ public class AIPlanningService {
         // 创建"生成中"的计划
         String title = extractTitle(conversation.getPlanMarkdown());
         ItineraryBO itineraryBO = itineraryService.createGeneratingItinerary(
-                userId, title, conversation.getPlanMarkdown(), null, null
+                userId, title, conversation.getPlanMarkdown(), null
         );
 
         log.info("计划记录已创建，发布异步生成事件: {}", itineraryBO.getItineraryKey());
@@ -123,7 +123,7 @@ public class AIPlanningService {
 
         String title = extractTitle(text);
         ItineraryBO itineraryBO = itineraryService.createGeneratingItinerary(
-                userId, title, text, null, imageUrls.isEmpty() ? null : imageUrls
+                userId, title, text, imageUrls.isEmpty() ? null : imageUrls
         );
         
         log.info("文本计划记录已创建，发布异步生成事件: {}, 封面图片数量: {}", 
@@ -183,7 +183,7 @@ public class AIPlanningService {
         }
         
         ItineraryBO itineraryBO = itineraryService.createGeneratingItinerary(
-                userId, title, crawledText, null, images.isEmpty() ? null : images
+                userId, title, crawledText, images.isEmpty() ? null : images
         );
         
         log.info("小红书计划记录已创建，发布异步生成事件: {}", itineraryBO.getItineraryKey());

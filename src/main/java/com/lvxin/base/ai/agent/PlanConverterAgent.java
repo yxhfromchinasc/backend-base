@@ -52,10 +52,4 @@ public class PlanConverterAgent {
         log.error("计划转换重试耗尽，最终失败", e);
         throw new BusinessException(ErrorCode.INTERNAL_ERROR, "计划转换失败，请稍后重试: " + e.getMessage());
     }
-    
-    // 该方法已废弃，保留是为了兼容旧代码调用（直到完全清理）
-    public String completeAndValidateItineraryJson(String jsonString) {
-        // 实际上这部分逻辑已经移入 FieldEnrichmentStep
-        return jsonString; 
-    }
 }

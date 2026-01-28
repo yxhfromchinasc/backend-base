@@ -134,17 +134,12 @@ public class AIPlanningController {
         resp.setUserId(bo.getUserId());
         resp.setTitle(bo.getTitle());
         resp.setCoverImageUrls(bo.getCoverImageUrls());
-        // 向后兼容：如果coverImageUrls为空，尝试从coverImageUrl转换
-        if ((resp.getCoverImageUrls() == null || resp.getCoverImageUrls().isEmpty()) 
-            && bo.getCoverImageUrl() != null && !bo.getCoverImageUrl().isEmpty()) {
-            resp.setCoverImageUrls(java.util.Collections.singletonList(bo.getCoverImageUrl()));
-        }
+        
         // 向后兼容：设置单个coverImageUrl（取第一张）
         if (resp.getCoverImageUrls() != null && !resp.getCoverImageUrls().isEmpty()) {
             resp.setCoverImageUrl(resp.getCoverImageUrls().get(0));
-        } else {
-            resp.setCoverImageUrl(bo.getCoverImageUrl());
         }
+        
         resp.setJsonData(bo.getJsonData());
         resp.setVersion(bo.getVersion());
         resp.setComponentVersion(bo.getComponentVersion());

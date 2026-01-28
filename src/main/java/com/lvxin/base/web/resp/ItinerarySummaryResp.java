@@ -27,10 +27,8 @@ public class ItinerarySummaryResp {
     private String title;
 
     /**
-     * 封面图片URL（已废弃，保留用于兼容）
-     * @deprecated 使用 coverImageUrls 代替
+     * 封面图片URL（向后兼容用，取列表第一张）
      */
-    @Deprecated
     private String coverImageUrl;
 
     /**
