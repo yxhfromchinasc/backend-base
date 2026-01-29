@@ -48,6 +48,45 @@ public class AIPlanningService {
     }
 
     /**
+     * 表单式AI规划：用户提交表单，跳过需求收集阶段
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public ChatResponse submitForm(String conversationId, com.lvxin.base.ai.model.TravelRequirement requirement, Long userId) {
+        // 1. 获取或创建对话
+        AIConversation conversation = conversationService.getOrCreate(conversationId, userId);
+        
+        // 2. 设置收集到的需求
+        conversation.setRequirement(requirement);
+        
+        // 3. 添加一条模拟的用户消息，告知AI需求已通过表单提交
+        String userMessage = "这是我的旅行需求：\n" + requirement.getSummary();
+        conversation.addUserMessage(userMessage);
+        
+        // 4. 如果需求已完整，手动将阶段设为需求收集，让Agent在下一次chat时触发流转
+        // 或者更直接点，如果已完整，直接调用Agent处理，Agent会自动发现shouldTransition并切到生成阶段
+        conversation.setStage(ConversationStage.REQUIREMENT_COLLECTING);
+        
+        // 5. 调用智能体处理
+        String aiReply = planningAgent.chat(conversation);
+        
+        // 6. 判断是否生成了计划
+        boolean isPlan = conversation.getStage() == ConversationStage.PLAN_GENERATING
+                && conversation.getPlanMarkdown() != null
+                && aiReply.equals(conversation.getPlanMarkdown());
+        
+        conversation.addAssistantMessage(aiReply, isPlan);
+        conversationService.save(conversation);
+        
+        return ChatResponse.builder()
+                .conversationId(conversation.getConversationId())
+                .reply(aiReply)
+                .stage(conversation.getStage())
+                .planMarkdown(conversation.getPlanMarkdown())
+                .canConvert(conversation.canConvert())
+                .build();
+    }
+
+    /**
      * 处理用户消息（智能体1）
      */
     public ChatResponse chat(String conversationId, String userMessage, Long userId) {

@@ -7,6 +7,7 @@ import com.lvxin.base.util.CurrentUserUtil;
 import com.lvxin.base.web.annotation.AuthCheck;
 import com.lvxin.base.web.req.AIChatReq;
 import com.lvxin.base.web.req.AIConvertReq;
+import com.lvxin.base.web.req.AIFormPlanningReq;
 import com.lvxin.base.web.req.XiaohongshuToItineraryReq;
 import com.lvxin.base.web.resp.AIChatResp;
 import com.lvxin.base.web.resp.ItineraryDetailResp;
@@ -48,6 +49,34 @@ public class AIPlanningController {
         AIPlanningService.ChatResponse response = aiPlanningService.chat(
                 request.getConversationId(),
                 request.getMessage(),
+                userId
+        );
+
+        AIChatResp resp = AIChatResp.builder()
+                .conversationId(response.getConversationId())
+                .reply(response.getReply())
+                .stage(response.getStage().name())
+                .planMarkdown(response.getPlanMarkdown())
+                .canConvert(response.getCanConvert())
+                .build();
+
+        return Result.success(resp);
+    }
+
+    /**
+     * 表单式AI对话接口
+     * 用户提交需求表单，跳过需求收集阶段，直接生成计划
+     */
+    @Operation(summary = "提交需求表单", description = "提交旅行需求表单，直接开始生成计划")
+    @PostMapping("/submit-form")
+    @AuthCheck
+    public Result<AIChatResp> submitForm(@Valid @RequestBody AIFormPlanningReq request) {
+        Long userId = CurrentUserUtil.getCurrentUserId();
+        log.info("提交需求表单请求，conversationId: {}, userId: {}", request.getConversationId(), userId);
+
+        AIPlanningService.ChatResponse response = aiPlanningService.submitForm(
+                request.getConversationId(),
+                request.getRequirement(),
                 userId
         );
 
