@@ -126,3 +126,19 @@ mvn spring-boot:run
 ## License
 
 Copyright © 2024 旅心团队
+
+
+## 部署凭据配置
+
+仓库中的凭据由运行环境注入，请在部署平台或本地未跟踪的环境配置中设置：
+
+- `AMAP_API_KEY`
+- `CLS_SECRET_ID`
+- `CLS_SECRET_KEY`
+- `CLS_TOPIC_ID`
+- `DB_PASSWORD`
+- `DEEPSEEK_API_KEY`
+- `REDIS_PASSWORD`
+- `SECURITY_TOKEN_SECRET`
+
+不要将实际凭据提交到 Git。历史中出现过的凭据应在对应服务端撤销并重新生成。
